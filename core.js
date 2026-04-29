@@ -29,8 +29,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       // Show/hide date nav
       const dn=NT.$('#dateNav');
       if(dn)dn.style.display=tab.dataset.tab==='diary'?'flex':'none';
-      if(tab.dataset.tab==='progress'&&typeof renderProgress==='function')renderProgress();
-      if(tab.dataset.tab==='body'&&typeof renderBody==='function')renderBody();
+      // Defer heavy renders to next frame so tab swap is instant
+      if(tab.dataset.tab==='progress'&&typeof renderProgress==='function')requestAnimationFrame(()=>renderProgress());
+      if(tab.dataset.tab==='body'&&typeof renderBody==='function')requestAnimationFrame(()=>renderBody());
     });
   });
 

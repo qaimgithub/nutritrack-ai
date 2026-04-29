@@ -444,7 +444,30 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 
   // ═══ SETTINGS (More tab — simplified, goals in Body tab) ═══
-  function loadSettings(){NT.$('#geminiKey').value=NT.state.geminiKey||''}
+  function loadSettings(){
+    NT.$('#geminiKey').value=NT.state.geminiKey||'';
+    // Populate snapshot card
+    const log=dayLog(NT.state.currentDate);
+    let cal=0,pro=0;
+    ['breakfast','lunch','dinner','snacks'].forEach(m=>(log[m]||[]).forEach(i=>{cal+=i.cal||0;pro+=i.protein||0}));
+    const snapCal=NT.$('#snapCal');if(snapCal)snapCal.textContent=Math.round(cal);
+    const snapGoal=NT.$('#snapGoal');if(snapGoal)snapGoal.textContent=NT.state.goals.cal;
+    const snapPro=NT.$('#snapProtein');if(snapPro)snapPro.textContent=Math.round(pro)+'g';
+    const latestW=NT.state.bodyLogs.length?NT.state.bodyLogs[NT.state.bodyLogs.length-1].weight:null;
+    const snapW=NT.$('#snapWeight');if(snapW)snapW.textContent=latestW?latestW+'kg':'--';
+    // Streak
+    const streakEl=NT.$('#snapshotStreak');
+    if(streakEl){
+      let streak=0,d=todayStr();
+      while(NT.state.logs[d]){const l=NT.state.logs[d];if(['breakfast','lunch','dinner','snacks'].some(m=>(l[m]||[]).length>0))streak++;else break;d=shiftDate(d,-1)}
+      streakEl.textContent='🔥 '+streak;
+    }
+    const snapDate=NT.$('#snapshotDate');
+    if(snapDate){
+      const d=new Date();
+      snapDate.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    }
+  }
   loadSettings();
 
   NT.$('#saveAllSettings').addEventListener('click',()=>{

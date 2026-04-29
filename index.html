@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NutriTrack AI — Smart Nutrition Tracker</title>
     <meta name="description" content="AI-powered calorie and macro tracking. Log meals with photos, natural language, or chat with your AI nutrition coach.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -523,11 +525,21 @@
         <!-- ═══ TAB: MORE ═══ -->
         <main id="page-more" class="page">
             <div class="more-container">
-                <!-- Profile -->
+                <!-- Today's Snapshot -->
                 <section class="more-card profile-card">
-                    <div class="profile-avatar" id="profileAvatar">👤</div>
-                    <h2 id="profileName">Your Profile</h2>
-                    <p class="muted-text" id="profileGoalText">Set your goals below</p>
+                    <div class="snapshot-header">
+                        <div>
+                            <h2 style="font-size:1.1rem;font-weight:700">NutriTrack <span style="color:var(--accent);font-weight:400;font-size:.75rem">AI</span></h2>
+                            <p class="muted-text" id="snapshotDate" style="font-size:.72rem;margin-top:2px">Today</p>
+                        </div>
+                        <div class="snapshot-streak" id="snapshotStreak">🔥 0</div>
+                    </div>
+                    <div class="snapshot-grid" id="snapshotGrid">
+                        <div class="snap-stat"><span class="snap-val" id="snapCal">--</span><span class="snap-label">cal eaten</span></div>
+                        <div class="snap-stat"><span class="snap-val" id="snapGoal">--</span><span class="snap-label">cal goal</span></div>
+                        <div class="snap-stat"><span class="snap-val" id="snapProtein">--</span><span class="snap-label">protein</span></div>
+                        <div class="snap-stat"><span class="snap-val" id="snapWeight">--</span><span class="snap-label">weight</span></div>
+                    </div>
                 </section>
 
                 <!-- Gemini Key -->
