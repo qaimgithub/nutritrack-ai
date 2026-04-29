@@ -206,7 +206,7 @@ function updateDiary(){
     const duration=400;const start=performance.now();
     function animateCount(now){
       const elapsed=now-start;const progress=Math.min(elapsed/duration,1);
-      const eased=1-Math.pow(1-progress,3); // ease-out cubic
+      const eased=1-Math.pow(1-progress,3);
       calEl.textContent=Math.round(startVal+(targetVal-startVal)*eased);
       if(progress<1)requestAnimationFrame(animateCount);
     }
@@ -220,14 +220,13 @@ function updateDiary(){
   const ringFill=NT.$('.calorie-fill');
   const ringBg=NT.$('.ring-bg');
   if(ringFill){
-    // Use style.stroke to override CSS (setAttribute loses to CSS specificity)
     ringFill.style.stroke=isOver?'url(#calGradOver)':'url(#calGrad)';
   }
   if(ringBg){
     ringBg.style.stroke=isOver?'rgba(255,69,58,.12)':'rgba(255,255,255,.04)';
   }
   
-  // Remaining text — show actual overage
+  // Remaining text
   const remEl=NT.$('#caloriesRemaining');
   if(isOver){
     const over=Math.round(net-NT.state.goals.cal);
@@ -239,11 +238,109 @@ function updateDiary(){
     remEl.style.color='var(--text2)';
   }
 
+  // ═══ YESTERDAY GHOST RING ═══
+  const yesterdayDate=shiftDate(NT.state.currentDate,-1);
+  const yLog=NT.state.logs[yesterdayDate];
+  let yCal=0;
+  if(yLog)['breakfast','lunch','dinner','snacks'].forEach(m=>(yLog[m]||[]).forEach(i=>yCal+=i.cal));
+  setRing('#yesterdayRing',yCal,NT.state.goals.cal,82);
+
+  // ═══ MEAL SEGMENT DOTS ═══
+  const mealDots=NT.$('#mealDots');
+  if(mealDots){
+    mealDots.innerHTML='';
+    const mealColors={breakfast:'#FFD60A',lunch:'#FF9F0A',dinner:'#5E5CE6',snacks:'#FF6482'};
+    let cumCal=0;
+    ['breakfast','lunch','dinner','snacks'].forEach(meal=>{
+      let mc=0;
+      (log[meal]||[]).forEach(i=>mc+=i.cal);
+      if(mc>0){
+        cumCal+=mc;
+        const pct=Math.min(cumCal/NT.state.goals.cal,1);
+        const angle=-Math.PI/2+pct*Math.PI*2;
+        const dotR=82;
+        const x=100+Math.cos(angle)*dotR;
+        const y=100+Math.sin(angle)*dotR;
+        const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        dot.setAttribute('cx',x);dot.setAttribute('cy',y);dot.setAttribute('r','4');
+        dot.setAttribute('fill',mealColors[meal]);dot.setAttribute('stroke','#000');dot.setAttribute('stroke-width','2');
+        mealDots.appendChild(dot);
+      }
+    });
+  }
+
+  // ═══ TIME-BASED PACING ═══
+  const pacingRow=NT.$('#pacingRow');
+  const pacingText=NT.$('#pacingText');
+  const pacingIcon=NT.$('#pacingIcon');
+  if(pacingRow&&NT.state.currentDate===todayStr()){
+    const now=new Date();
+    const hoursPassed=now.getHours()+now.getMinutes()/60;
+    const dayFraction=Math.min(hoursPassed/16,1); // 16 waking hours (6am-10pm)
+    const expectedCal=Math.round(NT.state.goals.cal*dayFraction);
+    const diff=Math.round(t.cal-expectedCal);
+    pacingRow.style.display='flex';
+    if(isOver){
+      pacingRow.className='pacing-row over';
+      pacingIcon.textContent='⚠️';pacingText.textContent=Math.round(net-NT.state.goals.cal)+' cal over budget';
+    } else if(diff>100){
+      pacingRow.className='pacing-row behind';
+      pacingIcon.textContent='⏫';pacingText.textContent=diff+' cal ahead of pace';
+    } else if(diff<-100){
+      pacingRow.className='pacing-row ahead';
+      pacingIcon.textContent='✅';pacingText.textContent=Math.abs(diff)+' cal under pace';
+    } else {
+      pacingRow.className='pacing-row';
+      pacingIcon.textContent='⏱';pacingText.textContent='On pace';
+    }
+  } else if(pacingRow){
+    pacingRow.style.display='none';
+  }
+
+  // ═══ CALORIE RATIO BAR ═══
+  const pCal=t.protein*4,cCal=t.carbs*4,fCal=t.fat*9;
+  const totalMacroCal=pCal+cCal+fCal;
+  if(totalMacroCal>0){
+    const pP=pCal/totalMacroCal*100,cP=cCal/totalMacroCal*100,fP=fCal/totalMacroCal*100;
+    const rp=NT.$('#ratioProtein');if(rp)rp.style.width=pP+'%';
+    const rc=NT.$('#ratioCarbs');if(rc)rc.style.width=cP+'%';
+    const rf=NT.$('#ratioFat');if(rf)rf.style.width=fP+'%';
+    const rlp=NT.$('#ratioProteinLabel');if(rlp)rlp.textContent='P '+Math.round(pP)+'%';
+    const rlc=NT.$('#ratioCarbsLabel');if(rlc)rlc.textContent='C '+Math.round(cP)+'%';
+    const rlf=NT.$('#ratioFatLabel');if(rlf)rlf.textContent='F '+Math.round(fP)+'%';
+  }
+
   NT.$('#proteinVal').textContent=Math.round(t.protein);NT.$('#proteinGoal').textContent=NT.state.goals.protein;
   NT.$('#carbsVal').textContent=Math.round(t.carbs);NT.$('#carbsGoal').textContent=NT.state.goals.carbs;
   NT.$('#fatVal').textContent=Math.round(t.fat);NT.$('#fatGoal').textContent=NT.state.goals.fat;
   NT.$('#fiberVal').textContent=Math.round(t.fiber);NT.$('#fiberGoal').textContent=NT.state.goals.fiber||30;
   NT.$('#sugarVal').textContent=Math.round(t.sugar);NT.$('#sugarGoal').textContent=NT.state.goals.sugar||50;
+
+  // ═══ REMAINING GRAMS ═══
+  const remMacros=[
+    {id:'#proteinRemaining',val:t.protein,goal:NT.state.goals.protein},
+    {id:'#carbsRemaining',val:t.carbs,goal:NT.state.goals.carbs},
+    {id:'#fatRemaining',val:t.fat,goal:NT.state.goals.fat},
+    {id:'#fiberRemaining',val:t.fiber,goal:NT.state.goals.fiber||30},
+    {id:'#sugarRemaining',val:t.sugar,goal:NT.state.goals.sugar||50}
+  ];
+  remMacros.forEach(({id,val,goal})=>{
+    const el=NT.$(id);if(!el)return;
+    const left=Math.round(goal-val);
+    el.textContent=left>0?left+'g left':Math.abs(left)+'g over';
+    el.style.color=left<0?'var(--danger)':'';
+  });
+
+  // ═══ CALORIE CONTRIBUTION LABELS ═══
+  const contribs=[
+    {id:'#proteinCalContrib',cal:pCal,pct:totalMacroCal?pCal/totalMacroCal*100:0},
+    {id:'#carbsCalContrib',cal:cCal,pct:totalMacroCal?cCal/totalMacroCal*100:0},
+    {id:'#fatCalContrib',cal:fCal,pct:totalMacroCal?fCal/totalMacroCal*100:0}
+  ];
+  contribs.forEach(({id,cal,pct})=>{
+    const el=NT.$(id);if(!el)return;
+    el.textContent=cal>0?Math.round(cal)+' cal ('+Math.round(pct)+'%)':'';
+  });
 
   // Protein per kg bodyweight
   const latestBW=NT.state.bodyLogs.length?NT.state.bodyLogs[NT.state.bodyLogs.length-1].weight:Object.values(NT.state.weights).pop()||0;
@@ -274,6 +371,81 @@ function updateDiary(){
       if(vEl)vEl.style.color='';
     }
   });
+
+  // ═══ NUTRIENT INSIGHT BADGES ═══
+  const badgeContainer=NT.$('#insightBadges');
+  if(badgeContainer&&t.cal>0){
+    let badges=[];
+    // Fiber
+    const fiberPct=t.fiber/(NT.state.goals.fiber||30);
+    if(fiberPct>=0.8)badges.push({text:'☑ Fiber',cls:'good'});
+    else if(fiberPct>=0.4)badges.push({text:'◐ Fiber',cls:'warn'});
+    else badges.push({text:'✗ Fiber',cls:'bad'});
+    // Sugar
+    const sugarPct=t.sugar/(NT.state.goals.sugar||50);
+    if(sugarPct>1)badges.push({text:'⚠ Sugar high',cls:'bad'});
+    else if(sugarPct>0.8)badges.push({text:'◐ Sugar',cls:'warn'});
+    else badges.push({text:'☑ Sugar',cls:'good'});
+    // Protein/kg
+    if(latestBW>0){
+      const pkg=t.protein/latestBW;
+      if(pkg>=1.6)badges.push({text:'☑ '+pkg.toFixed(1)+'g/kg',cls:'good'});
+      else if(pkg>=1.0)badges.push({text:'◐ '+pkg.toFixed(1)+'g/kg',cls:'warn'});
+      else badges.push({text:'✗ '+pkg.toFixed(1)+'g/kg',cls:'bad'});
+    }
+    // Calorie status
+    if(!isOver&&net>0){
+      const calPct=net/NT.state.goals.cal;
+      if(calPct>=0.8&&calPct<=1.05)badges.push({text:'☑ Cal on target',cls:'good'});
+    }
+    badgeContainer.innerHTML=badges.map(b=>`<span class="insight-badge ${b.cls}">${b.text}</span>`).join('');
+  } else if(badgeContainer){
+    badgeContainer.innerHTML='';
+  }
+
+  // ═══ DAILY GRADE ═══
+  const gradeEl=NT.$('#dailyGrade');
+  if(gradeEl&&t.cal>0){
+    const scores=[];
+    const calScore=Math.max(0,100-Math.abs(net/NT.state.goals.cal-1)*100);scores.push(calScore);
+    const proScore=Math.max(0,100-Math.abs(t.protein/NT.state.goals.protein-1)*80);scores.push(proScore);
+    const carbScore=Math.max(0,100-Math.abs(t.carbs/NT.state.goals.carbs-1)*80);scores.push(carbScore);
+    const fatScore=Math.max(0,100-Math.abs(t.fat/NT.state.goals.fat-1)*80);scores.push(fatScore);
+    const avg=scores.reduce((a,b)=>a+b,0)/scores.length;
+    let letter,color;
+    if(avg>=90){letter='A';color='#30D158'}
+    else if(avg>=75){letter='B';color='#5AC8FA'}
+    else if(avg>=60){letter='C';color='#FFD60A'}
+    else if(avg>=40){letter='D';color='#FF9F0A'}
+    else{letter='F';color='#FF453A'}
+    gradeEl.querySelector('.grade-letter').textContent=letter;
+    gradeEl.querySelector('.grade-letter').style.color=color;
+  } else if(gradeEl){
+    gradeEl.querySelector('.grade-letter').textContent='--';
+    gradeEl.querySelector('.grade-letter').style.color='var(--muted)';
+  }
+
+  // ═══ MEAL TIMING TIMELINE ═══
+  const timelineBar=NT.$('#timelineBar');
+  if(timelineBar){
+    timelineBar.innerHTML='';
+    const mealTColors={breakfast:'#FFD60A',lunch:'#FF9F0A',dinner:'#5E5CE6',snacks:'#FF6482'};
+    const mealTimes={breakfast:8,lunch:13,dinner:19,snacks:16}; // default hours
+    ['breakfast','lunch','dinner','snacks'].forEach(meal=>{
+      const items=log[meal]||[];
+      if(items.length>0){
+        // Use logged time if available, otherwise default
+        const hr=items[0].time?parseInt(items[0].time.split(':')[0]):mealTimes[meal];
+        const pct=Math.max(0,Math.min(((hr-6)/18)*100,100)); // 6am=0%, 12am=100%
+        const dot=document.createElement('div');
+        dot.className='timeline-dot';
+        dot.style.left=`calc(${pct}% - 5px)`;
+        dot.style.background=mealTColors[meal];
+        dot.title=meal.charAt(0).toUpperCase()+meal.slice(1)+' ~'+hr+':00';
+        timelineBar.appendChild(dot);
+      }
+    });
+  }
 
   renderWater(log.water||0);
   // Date

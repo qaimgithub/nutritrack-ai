@@ -80,8 +80,12 @@
                             <linearGradient id="calGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5AC8FA"/><stop offset="100%" stop-color="#64D2FF"/></linearGradient>
                             <linearGradient id="calGradOver" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF6482"/><stop offset="100%" stop-color="#FF453A"/></linearGradient>
                         </defs>
+                        <!-- Yesterday ghost ring -->
+                        <circle class="ring-ghost" cx="100" cy="100" r="82" id="yesterdayRing"/>
                         <circle class="ring-bg" cx="100" cy="100" r="82"/>
                         <circle class="ring-fill calorie-fill" cx="100" cy="100" r="82" stroke="url(#calGrad)"/>
+                        <!-- Meal segment dots -->
+                        <g id="mealDots"></g>
                     </svg>
                     <div class="ring-label">
                         <span class="ring-value" id="caloriesConsumed">0</span>
@@ -91,30 +95,65 @@
                 </div>
             </section>
 
+            <!-- Pacing indicator -->
+            <div class="pacing-row" id="pacingRow">
+                <span class="pacing-icon" id="pacingIcon">⏱</span>
+                <span class="pacing-text" id="pacingText">On pace</span>
+            </div>
+
+            <!-- Calorie Split Ratio -->
+            <div class="cal-ratio-bar" id="calRatioBar">
+                <div class="ratio-segment ratio-protein" id="ratioProtein"></div>
+                <div class="ratio-segment ratio-carbs" id="ratioCarbs"></div>
+                <div class="ratio-segment ratio-fat" id="ratioFat"></div>
+            </div>
+            <div class="ratio-labels" id="ratioLabels">
+                <span class="ratio-label" style="color:var(--protein)" id="ratioProteinLabel">P 0%</span>
+                <span class="ratio-label" style="color:var(--carbs)" id="ratioCarbsLabel">C 0%</span>
+                <span class="ratio-label" style="color:var(--fat)" id="ratioFatLabel">F 0%</span>
+            </div>
+
             <!-- Macro Bars -->
             <section class="macro-bars">
                 <div class="macro-bar-item">
-                    <div class="macro-bar-header"><span class="macro-dot protein-dot"></span><span>Protein</span><span id="proteinPerKg" class="protein-pkg-badge" style="display:none"></span><span class="macro-nums"><span id="proteinVal">0</span>/<span id="proteinGoal">150</span>g</span></div>
+                    <div class="macro-bar-header"><span class="macro-dot protein-dot"></span><span>Protein</span><span id="proteinPerKg" class="protein-pkg-badge" style="display:none"></span><span class="macro-remaining" id="proteinRemaining"></span><span class="macro-nums"><span id="proteinVal">0</span>/<span id="proteinGoal">150</span>g</span></div>
                     <div class="bar-track"><div class="bar-fill protein-bar" id="proteinBar"></div></div>
+                    <div class="macro-cal-contrib" id="proteinCalContrib"></div>
                 </div>
                 <div class="macro-bar-item">
-                    <div class="macro-bar-header"><span class="macro-dot carbs-dot"></span><span>Carbs</span><span class="macro-nums"><span id="carbsVal">0</span>/<span id="carbsGoal">250</span>g</span></div>
+                    <div class="macro-bar-header"><span class="macro-dot carbs-dot"></span><span>Carbs</span><span class="macro-remaining" id="carbsRemaining"></span><span class="macro-nums"><span id="carbsVal">0</span>/<span id="carbsGoal">250</span>g</span></div>
                     <div class="bar-track"><div class="bar-fill carbs-bar" id="carbsBar"></div></div>
+                    <div class="macro-cal-contrib" id="carbsCalContrib"></div>
                 </div>
                 <div class="macro-bar-item">
-                    <div class="macro-bar-header"><span class="macro-dot fat-dot"></span><span>Fat</span><span class="macro-nums"><span id="fatVal">0</span>/<span id="fatGoal">65</span>g</span></div>
+                    <div class="macro-bar-header"><span class="macro-dot fat-dot"></span><span>Fat</span><span class="macro-remaining" id="fatRemaining"></span><span class="macro-nums"><span id="fatVal">0</span>/<span id="fatGoal">65</span>g</span></div>
                     <div class="bar-track"><div class="bar-fill fat-bar" id="fatBar"></div></div>
+                    <div class="macro-cal-contrib" id="fatCalContrib"></div>
                 </div>
                 <div class="macro-divider"></div>
                 <div class="macro-bar-item">
-                    <div class="macro-bar-header"><span class="macro-dot fiber-dot"></span><span>Fiber</span><span class="macro-nums"><span id="fiberVal">0</span>/<span id="fiberGoal">30</span>g</span></div>
+                    <div class="macro-bar-header"><span class="macro-dot fiber-dot"></span><span>Fiber</span><span class="macro-remaining" id="fiberRemaining"></span><span class="macro-nums"><span id="fiberVal">0</span>/<span id="fiberGoal">30</span>g</span></div>
                     <div class="bar-track"><div class="bar-fill fiber-bar" id="fiberBar"></div></div>
                 </div>
                 <div class="macro-bar-item">
-                    <div class="macro-bar-header"><span class="macro-dot sugar-dot"></span><span>Sugar</span><span class="macro-nums"><span id="sugarVal">0</span>/<span id="sugarGoal">50</span>g</span></div>
+                    <div class="macro-bar-header"><span class="macro-dot sugar-dot"></span><span>Sugar</span><span class="macro-remaining" id="sugarRemaining"></span><span class="macro-nums"><span id="sugarVal">0</span>/<span id="sugarGoal">50</span>g</span></div>
                     <div class="bar-track"><div class="bar-fill sugar-bar" id="sugarBar"></div></div>
                 </div>
             </section>
+
+            <!-- Nutrient Badges + Daily Grade -->
+            <div class="nutrient-insights" id="nutrientInsights">
+                <div class="insight-badges" id="insightBadges"></div>
+                <div class="daily-grade" id="dailyGrade"><span class="grade-letter">--</span><span class="grade-label">Daily Score</span></div>
+            </div>
+
+            <!-- Meal Timing Timeline -->
+            <div class="meal-timeline" id="mealTimeline">
+                <div class="timeline-track">
+                    <div class="timeline-labels"><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
+                    <div class="timeline-bar" id="timelineBar"></div>
+                </div>
+            </div>
 
             <!-- Meal Sections -->
             <section id="mealSections" class="meal-sections">

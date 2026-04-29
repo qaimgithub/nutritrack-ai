@@ -97,9 +97,10 @@ textarea{font-family:var(--font);font-size:.85rem;color:var(--text);background:r
 @keyframes dotPulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1.1)}}
 
 /* Calorie Ring */
-.calorie-hero{display:flex;justify-content:center;padding:24px 0 12px}
+.calorie-hero{display:flex;justify-content:center;padding:24px 0 8px}
 .ring-container{position:relative;width:180px;height:180px}
 .progress-ring{width:100%;height:100%;transform:rotate(-90deg)}
+.ring-ghost{fill:none;stroke:rgba(255,255,255,.06);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .8s var(--ease)}
 .ring-bg{fill:none;stroke:rgba(255,255,255,.04);stroke-width:8}
 .ring-fill{fill:none;stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .8s var(--ease),stroke .4s var(--ease)}
 .calorie-fill{stroke:url(#calGrad)}
@@ -108,8 +109,18 @@ textarea{font-family:var(--font);font-size:.85rem;color:var(--text);background:r
 .ring-sub{font-size:.72rem;color:var(--text2);margin-top:4px}
 .ring-remaining{font-size:.7rem;color:var(--text2);font-weight:500;margin-top:2px;font-family:var(--mono)}
 
+/* Pacing */
+.pacing-row{display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0 10px;font-size:.7rem;font-weight:500;color:var(--text2)}
+.pacing-row.ahead{color:#30D158} .pacing-row.behind{color:#FF9F0A} .pacing-row.over{color:var(--danger)}
+
+/* Calorie Ratio Bar */
+.cal-ratio-bar{display:flex;height:4px;margin:0 16px 4px;border-radius:2px;overflow:hidden;background:rgba(255,255,255,.04)}
+.ratio-segment{height:100%;transition:width .6s var(--ease)}
+.ratio-protein{background:var(--protein)} .ratio-carbs{background:var(--carbs)} .ratio-fat{background:var(--fat)}
+.ratio-labels{display:flex;justify-content:space-between;padding:0 16px 10px;font-size:.6rem;font-weight:600;font-family:var(--mono)}
+
 /* Macro Bars */
-.macro-bars{padding:0 16px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.macro-bars{padding:0 16px;display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
 .macro-bar-item{display:flex;flex-direction:column;gap:4px}
 .macro-bar-header{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:500}
 .macro-bar-header span:last-child{margin-left:auto;font-family:var(--mono);font-size:.72rem}
@@ -125,6 +136,27 @@ textarea{font-family:var(--font);font-size:.85rem;color:var(--text);background:r
 .fiber-dot{background:#30D158} .sugar-dot{background:#FF9F0A}
 .macro-divider{height:1px;background:var(--border);margin:4px 0}
 .protein-pkg-badge{font-size:.6rem;font-family:var(--mono);font-weight:600;color:var(--text2);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:8px;margin-left:4px}
+.macro-remaining{font-size:.6rem;font-family:var(--mono);font-weight:500;color:var(--muted);margin-left:auto;margin-right:6px}
+.macro-cal-contrib{font-size:.6rem;font-family:var(--mono);color:var(--muted);padding-left:14px;margin-top:-2px}
+
+/* Nutrient Insights */
+.nutrient-insights{display:flex;align-items:center;padding:0 16px 12px;gap:10px}
+.insight-badges{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.insight-badge{font-size:.6rem;font-weight:600;font-family:var(--mono);padding:3px 8px;border-radius:8px;border:1px solid;white-space:nowrap}
+.insight-badge.good{color:#30D158;border-color:rgba(48,209,88,.2);background:rgba(48,209,88,.06)}
+.insight-badge.warn{color:#FF9F0A;border-color:rgba(255,159,10,.2);background:rgba(255,159,10,.06)}
+.insight-badge.bad{color:#FF453A;border-color:rgba(255,69,58,.2);background:rgba(255,69,58,.06)}
+.daily-grade{display:flex;flex-direction:column;align-items:center;min-width:48px}
+.grade-letter{font-family:var(--mono);font-size:1.4rem;font-weight:800;line-height:1}
+.grade-label{font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+
+/* Meal Timeline */
+.meal-timeline{padding:0 16px 14px}
+.timeline-track{position:relative}
+.timeline-labels{display:flex;justify-content:space-between;font-size:.55rem;color:var(--muted);font-family:var(--mono);margin-bottom:4px}
+.timeline-bar{height:6px;background:rgba(255,255,255,.04);border-radius:3px;position:relative;overflow:visible}
+.timeline-dot{position:absolute;width:10px;height:10px;border-radius:50%;top:-2px;border:2px solid var(--bg);z-index:1}
+.timeline-span{position:absolute;height:100%;border-radius:3px;opacity:.5;top:0}
 
 /* Meals */
 .meal-sections{padding:0 16px}
