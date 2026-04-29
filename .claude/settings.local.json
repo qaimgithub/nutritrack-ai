@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import reportlab; print\\('reportlab ok'\\)\")",
+      "Bash(python verizon_bill.py)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(start \"\" \"C:\\\\Users\\\\User\\\\Desktop\\\\CLAUDE CHUTYA\\\\verizon_bill_clean.pdf\")",
+      "mcp__Claude_in_Chrome__computer",
+      "Bash(python verizon_p1.py)",
+      "Bash(start \"\" \"verizon_page1_clean.pdf\")",
+      "Read(//c/Users/User/Desktop/CLAUDE CHUTYA/**)",
+      "Bash(python3)",
+      "Read(//c/c/Users/User/Desktop/CLAUDE CHUTYA/**)",
+      "Bash(python -c ' *)",
+      "Bash(pip install *)",
+      "Bash(python edit_name.py)",
+      "Bash(start \"\" \"document_edited.pdf\")"
+    ]
+  }
+}

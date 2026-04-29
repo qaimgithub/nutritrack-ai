@@ -1,0 +1,18 @@
+{
+  "name": "NutriTrack AI",
+  "short_name": "NutriTrack",
+  "description": "AI-powered nutrition tracking with smart macro logging, workout tracking, and personalized coaching.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#5AC8FA",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%230d1117' stroke='%2334d399' stroke-width='4'/><text x='50' y='62' font-size='40' text-anchor='middle' fill='%2334d399'>🥗</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
