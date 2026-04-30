@@ -132,6 +132,7 @@ const FOOD_DB = [
 {id:"dawn_bread",name:"Dawn Bread (sliced)",cal:280,protein:8,carbs:50,fat:4,fiber:2.5,sugar:5,servings:[{name:"slice",g:25},{name:"g",g:1}]},
 {id:"fried_rice",name:"Fried Rice (chicken & veggies)",cal:155,protein:8,carbs:22,fat:4.5,fiber:1,sugar:1,servings:[{name:"plate",g:300},{name:"cup",g:200},{name:"g",g:1}]},
 {id:"chicken_chilli_dry",name:"Chicken Chilli Dry",cal:175,protein:16,carbs:10,fat:8,fiber:1,sugar:3,servings:[{name:"serving",g:200},{name:"cup",g:180},{name:"g",g:1}]},
+{id:"rooh_afza",name:"Rooh Afza (syrup)",cal:200,protein:0,carbs:50,fat:0,fiber:0,sugar:48,servings:[{name:"tbsp",g:15},{name:"glass (diluted)",g:20},{name:"g",g:1}]},
 ];
 
 // Aliases for natural language matching
@@ -202,6 +203,7 @@ const FOOD_ALIASES = {
     "dawn bread":"dawn_bread","bread slice":"dawn_bread",
     "fried rice":"fried_rice","chicken fried rice":"fried_rice",
     "chilli dry":"chicken_chilli_dry","chicken chilli":"chicken_chilli_dry","chicken chili":"chicken_chilli_dry","chilli chicken":"chicken_chilli_dry",
+    "rooh afza":"rooh_afza","roohafza":"rooh_afza","rooh-afza":"rooh_afza","sharbat":"rooh_afza",
     "oatmeal":"oatmeal","oats":"oatmeal","porridge":"oatmeal",
     "granola":"granola","cereal":"cereal_cornflakes","cornflakes":"cereal_cornflakes",
     "tortilla":"tortilla_flour","wrap":"tortilla_flour",

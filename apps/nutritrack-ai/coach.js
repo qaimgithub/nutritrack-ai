@@ -365,7 +365,19 @@ Use the exact exercise name from the templates above.`;
   // ═══ FOOD DETECTION ═══
   function isFoodLog(text){
     const t=text.toLowerCase();
-    return /\b(i ate|i had|i just had|i just ate|i've eaten|i've had|i eat|my breakfast|my lunch|my dinner|my snack|for breakfast|for lunch|for dinner|for snack|log this|i drank|i consumed)\b/.test(t) || /\b(\d+\s*g\b.*\b(chicken|rice|egg|roti|bread|fish|meat|dal|milk|yogurt|paneer|butter|oil|ghee|paratha|biryani|tikka|nihari|naan|chapati|daal|sabzi|halwa|puri|oats|banana|apple|protein))/i.test(t);
+    // Direct food logging phrases
+    if(/\b(i ate|i had|i just had|i just ate|i've eaten|i've had|i eat|my breakfast|my lunch|my dinner|my snack|for breakfast|for lunch|for dinner|for snack|log this|i drank|i consumed)\b/.test(t)) return true;
+    // Food item + quantity pattern
+    if(/\b(\d+\s*g\b.*\b(chicken|rice|egg|roti|bread|fish|meat|dal|milk|yogurt|paneer|butter|oil|ghee|paratha|biryani|tikka|nihari|naan|chapati|daal|sabzi|halwa|puri|oats|banana|apple|protein|rooh afza|lassi|dahi|keema|qeema|pulao))/i.test(t)) return true;
+    // Correction/re-log patterns — user wants to fix and re-save
+    if(/\b(log it again|save it again|re-?log|correct (cals|calories|values|macros|it)|actually it'?s|the correct|update it|fix it|save (it|this) (as|with)|no it'?s|it should be|wrong.*(log|save)|redo it)\b/i.test(t)) return true;
+    // Context: if last AI msg had food JSON and user is giving corrections
+    const chat=getActiveChat();
+    if(chat){
+      const lastAi=[...chat.messages].reverse().find(m=>m.role==='ai');
+      if(lastAi && /FOOD_JSON/.test(lastAi.text) && /\b(\d+\s*cal|correct|wrong|actually|should be|log|save)\b/i.test(t)) return true;
+    }
+    return false;
   }
   function autoMeal(){const h=new Date().getHours();if(h<11)return'breakfast';if(h<15)return'lunch';if(h<20)return'dinner';return'snacks'}
   function detectMeal(text){
@@ -473,7 +485,7 @@ STEP 2 — CALCULATE:
   * Egg: 75 cal. Dal (cooked): 115 cal/100g. Oil/Ghee: ~120 cal/tbsp.
   * Milk (whole): 62 cal/100ml. Dahi/Yogurt: 60 cal/100g.
 - Calories = total for the ENTIRE stated portion, NEVER per 100g.
-- This food WILL BE AUTO-LOGGED to their **${userMeal}** diary. Tell them it's been logged.
+- After your breakdown, a confirmation button will appear. Do NOT say "logged" or "saved" — say something like "Here's the breakdown — confirm to log it to your diary."
 
 CRITICAL — YOU MUST DO THIS OR THE APP BREAKS:
 After your response, on the VERY LAST LINE, you MUST add this hidden HTML comment with the food data as JSON:
@@ -616,49 +628,58 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
         }catch(e){console.warn('Fallback extraction error:',e)}
       }
 
-      // ═══ AUTO-LOG FOOD TO DIARY ═══
+      // ═══ CONFIRM BEFORE LOGGING — show card with Log/Skip buttons ═══
       if(foodItems&&foodItems.length>0){
         const meal=userMeal;
         const totalCal=foodItems.reduce((s,i)=>s+(i.cal||0),0);
 
-        // REPLACE: Remove previous AI-logged items from this meal before adding new ones
-        const dl=dayLog(NT.state.currentDate);
-        dl[meal]=dl[meal].filter(item=>item.foodId!=='ai_coach');
-
-        // Write new items
-        foodItems.forEach(i=>{
-          let g=100;
-          const gm=(i.servingText||'').match(/(\d+\.?\d*)\s*g/i);
-          if(gm)g=parseFloat(gm[1]);
-          dl[meal].push({
-            name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,
-            fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,
-            servingText:i.servingText||'1 serving',foodId:'ai_coach',grams:g
-          });
-        });
-        saveAll();
-        updateDiary();
-
-        // Show confirmation card with undo option
         const card=document.createElement('div');card.className='chat-msg ai';
-        card.innerHTML=`<div style="border:1px solid rgba(48,209,88,.3);border-radius:12px;padding:12px;margin-top:4px;background:rgba(48,209,88,.06)">
-          <div style="font-weight:600;margin-bottom:6px;color:#30D158;display:flex;align-items:center;gap:6px">
-            <span style="font-size:1.1rem">✅</span> Logged to ${meal.charAt(0).toUpperCase()+meal.slice(1)}
+        card.innerHTML=`<div style="border:1px solid rgba(var(--accent-rgb),.3);border-radius:12px;padding:12px;margin-top:4px;background:rgba(var(--accent-rgb),.04)">
+          <div style="font-weight:600;margin-bottom:8px;color:var(--accent);display:flex;align-items:center;gap:6px">
+            <span style="font-size:1.1rem">📋</span> Ready to log to ${meal.charAt(0).toUpperCase()+meal.slice(1)}
           </div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${foodItems.map(i=>`${i.name}: ${Math.round(i.cal)} cal`).join('<br>')}<br><strong style="color:var(--text)">Total: ${Math.round(totalCal)} cal</strong></div>
-          <button class="undo-log" style="padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text2);cursor:pointer;font-size:.75rem;font-family:var(--font)">↩ Undo</button>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${foodItems.map(i=>`${i.name}: <strong style="color:var(--text)">${Math.round(i.cal)}</strong> cal`).join('<br>')}<br><strong style="color:var(--accent)">Total: ${Math.round(totalCal)} cal</strong></div>
+          <div style="display:flex;gap:8px">
+            <button class="confirm-log" style="flex:1;padding:8px 14px;border:0;border-radius:8px;background:var(--accent);color:#000;cursor:pointer;font-size:.78rem;font-weight:600;font-family:var(--font)">✅ Log this</button>
+            <button class="skip-log" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text2);cursor:pointer;font-size:.78rem;font-family:var(--font)">✗ Skip</button>
+          </div>
         </div>`;
         chatMsgs.appendChild(card);chatMsgs.scrollTop=chatMsgs.scrollHeight;
-        toast(`${foodItems.length} item${foodItems.length>1?'s':''} logged to ${meal} (${Math.round(totalCal)} cal)`,'success');
 
-        // Undo handler
-        card.querySelector('.undo-log')?.addEventListener('click',()=>{
-          const dl2=dayLog(NT.state.currentDate);
-          const count=foodItems.length;
-          dl2[meal].splice(-count,count);
+        // Log handler — only saves when user clicks
+        card.querySelector('.confirm-log')?.addEventListener('click',()=>{
+          const dl=dayLog(NT.state.currentDate);
+          dl[meal]=dl[meal].filter(item=>item.foodId!=='ai_coach');
+          foodItems.forEach(i=>{
+            let g=100;
+            const gm=(i.servingText||'').match(/(\d+\.?\d*)\s*g/i);
+            if(gm)g=parseFloat(gm[1]);
+            dl[meal].push({
+              name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,
+              fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,
+              servingText:i.servingText||'1 serving',foodId:'ai_coach',grams:g
+            });
+          });
           saveAll();updateDiary();
-          card.innerHTML=`<div style="color:var(--text2);padding:8px">↩ Removed from ${meal}</div>`;
-          toast('Food entry undone','info');
+          card.innerHTML=`<div style="border:1px solid rgba(48,209,88,.3);border-radius:12px;padding:10px;background:rgba(48,209,88,.06)">
+            <span style="color:#30D158;font-weight:600">✅ Logged to ${meal.charAt(0).toUpperCase()+meal.slice(1)}</span>
+            <span style="font-size:.72rem;color:var(--text2);margin-left:8px">${Math.round(totalCal)} cal</span>
+            <button class="undo-log" style="float:right;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text2);cursor:pointer;font-size:.7rem;font-family:var(--font)">↩ Undo</button>
+          </div>`;
+          toast(`${foodItems.length} item${foodItems.length>1?'s':''} logged to ${meal} (${Math.round(totalCal)} cal)`,'success');
+          // Undo handler
+          card.querySelector('.undo-log')?.addEventListener('click',()=>{
+            const dl2=dayLog(NT.state.currentDate);
+            dl2[meal].splice(-foodItems.length,foodItems.length);
+            saveAll();updateDiary();
+            card.innerHTML=`<div style="color:var(--text2);padding:8px">↩ Removed from ${meal}</div>`;
+            toast('Food entry undone','info');
+          });
+        });
+
+        // Skip handler
+        card.querySelector('.skip-log')?.addEventListener('click',()=>{
+          card.innerHTML=`<div style="color:var(--muted);padding:8px;font-size:.78rem">Skipped — not logged</div>`;
         });
       }
 
