@@ -76,7 +76,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       NT.$('#aiProcessing').classList.add('hidden');
       if(ai&&ai.length){
         const meal=ms.value,log=dayLog(NT.state.currentDate);
-        ai.forEach(i=>{log[meal].push({name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,servingText:i.servingText||'1 serving',foodId:'ai'})});
+        ai.forEach(i=>{
+          // Extract grams from AI servingText like "200g" or "1 cup (240g)"
+          let g=100;
+          const gm=(i.servingText||'').match(/(\d+\.?\d*)\s*g/i);
+          if(gm)g=parseFloat(gm[1]);
+          log[meal].push({name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,servingText:i.servingText||'1 serving',foodId:'ai',grams:g});
+        });
         saveAll();updateDiary();toast(`AI added ${ai.length} item${ai.length>1?'s':''}`,'success');qi.value='';return;
       }
     }
@@ -97,7 +103,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       NT.$('#aiProcessing').classList.add('hidden');
       if(ai&&ai.length){
         const meal=ms.value,log=dayLog(NT.state.currentDate);
-        ai.forEach(i=>{log[meal].push({name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,servingText:i.servingText||'1 serving',foodId:'ai_photo'})});
+        ai.forEach(i=>{
+          let g=100;
+          const gm=(i.servingText||'').match(/(\d+\.?\d*)\s*g/i);
+          if(gm)g=parseFloat(gm[1]);
+          log[meal].push({name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,servingText:i.servingText||'1 serving',foodId:'ai_photo',grams:g});
+        });
         saveAll();updateDiary();toast(`AI found ${ai.length} food${ai.length>1?'s':''} in photo`,'success');
       }else toast('Could not identify food in photo','error');
     }catch{NT.$('#aiProcessing').classList.add('hidden');toast('Photo analysis failed','error')}
@@ -509,13 +520,17 @@ function openEditModal(meal,idx,item){
     per100={cal:item.cal/m,protein:item.protein/m,carbs:item.carbs/m,fat:item.fat/m,fiber:(item.fiber||0)/m,sugar:(item.sugar||0)/m};
   }
 
-  const currentGrams=item.grams||(() => {
-    // Try to extract grams from servingText like "1 Large (50g)"
-    const gMatch=(item.servingText||'').match(/\((\d+\.?\d*)g\)/);
-    if(gMatch)return parseFloat(gMatch[1]);
-    // Fallback: reverse-calculate from cal
-    return per100.cal>0?item.cal/per100.cal*100:100;
-  })();
+  let currentGrams=item.grams||0;
+  if(!currentGrams){
+    // Try to extract grams from servingText like "1 Large (50g)" or "200g"
+    const gMatch=(item.servingText||'').match(/(\d+\.?\d*)\s*g(?:\b|\))/i);
+    if(gMatch)currentGrams=parseFloat(gMatch[1]);
+  }
+  if(!currentGrams && per100.cal>0){
+    // Reverse-calculate from calories using per-100g base
+    currentGrams=Math.round(item.cal/per100.cal*100);
+  }
+  if(!currentGrams)currentGrams=100; // absolute last resort
 
   editCtx={meal,idx,item,per100,originalGrams:currentGrams};
 
