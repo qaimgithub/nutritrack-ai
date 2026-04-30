@@ -1,10 +1,15 @@
 // NutriTrack AI — Service Worker (offline caching)
-const CACHE='nutritrack-v4';
+const CACHE='nutritrack-v5';
 const ASSETS=['./index.html','./style.css','./core.js','./features.js','./coach.js','./body.js','./food-db.js'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));
   self.skipWaiting();
+});
+
+// Allow page to force activation
+self.addEventListener('message',e=>{
+  if(e.data&&e.data.type==='SKIP_WAITING')self.skipWaiting();
 });
 
 self.addEventListener('activate',e=>{

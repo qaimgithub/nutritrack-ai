@@ -712,6 +712,26 @@
     <script src="features.js"></script>
     <script src="coach.js"></script>
     <script src="body.js"></script>
-    <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})</script>
+    <script>
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{
+        // Force check for updates on every page load
+        reg.update();
+        // If a new SW is waiting, activate it immediately
+        if(reg.waiting){reg.waiting.postMessage({type:'SKIP_WAITING'})}
+        reg.addEventListener('updatefound',()=>{
+          const nw=reg.installing;
+          nw.addEventListener('statechange',()=>{
+            if(nw.state==='installed'&&navigator.serviceWorker.controller){
+              nw.postMessage({type:'SKIP_WAITING'});
+              window.location.reload();
+            }
+          });
+        });
+      }).catch(()=>{});
+      // Reload when new SW takes control
+      navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
+    }
+    </script>
 </body>
 </html>
