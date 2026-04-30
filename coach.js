@@ -441,9 +441,11 @@ The user is LOGGING FOOD they ate. For this:
 - Raw chicken breast = 120 cal/100g (NOT 165 — that's cooked). Assume raw unless stated.
 - Calories for the TOTAL stated portion, not per 100g.
 - This food WILL BE AUTO-LOGGED to their **${userMeal}** diary. Tell them it's been logged. Do NOT say "would you like me to log it?" — it is automatic.
-- After your table, on a NEW line add EXACTLY this (hidden, parsed by app):
-<!--FOOD_JSON:[{"name":"item","cal":0,"protein":0,"carbs":0,"fat":0,"fiber":0,"sugar":0,"servingText":"portion"}]-->
-The JSON numbers MUST match your table. Be accurate.`:'';
+
+CRITICAL — YOU MUST DO THIS OR THE APP BREAKS:
+After your response, on the VERY LAST LINE, you MUST add this hidden HTML comment with the food data as JSON:
+<!--FOOD_JSON:[{"name":"Seeded Bread","cal":110,"protein":4.6,"carbs":11.5,"fat":5.1,"fiber":1,"sugar":0.5,"servingText":"1 slice"}]-->
+The JSON array MUST contain one object per food item. Numbers MUST match your table. DO NOT forget this line. Without it, NOTHING gets saved.`:'';
 
     const sp=`You are NutriTrack AI Coach — a friendly, knowledgeable nutrition expert who knows this user personally. Talk like a real person, not a robot.
 
@@ -465,7 +467,8 @@ ${foodRule}
 ${workoutDetected?buildWorkoutRule(detectedWorkoutType):''}
 
 Chat history:
-${hist}`;
+${hist}
+${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[...]-->  comment. This is mandatory.':''}`;
 
     try{
       currentAbort=new AbortController();
@@ -547,14 +550,34 @@ ${hist}`;
       // Auto-read response aloud ONLY if user used voice input
       if(shouldSpeak)speakText(reply,chatMsgs.lastElementChild?.querySelector('.tts-btn'));
 
+      // ═══ FALLBACK: If food was detected but no JSON found, extract it with a second call ═══
+      if(foodDetected&&!foodItems){
+        console.warn('Food detected but no JSON in response — running fallback extraction');
+        try{
+          const extractRes=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${NT.state.geminiKey}`,{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({contents:[{parts:[{text:`Extract ALL food items from this nutrition response and return ONLY a JSON array. No markdown, no text, no explanation — just the raw JSON array.
+
+Format: [{"name":"Food Name","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"servingText":"portion description"}]
+
+Response to extract from:
+${reply}`}]}],generationConfig:{temperature:0,maxOutputTokens:1024}})
+          });
+          if(extractRes.ok){
+            const extractData=await extractRes.json();
+            let extractText=extractData.candidates?.[0]?.content?.parts?.[0]?.text||'';
+            extractText=extractText.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+            try{foodItems=JSON.parse(extractText);console.log('Fallback extraction succeeded:',foodItems)}catch(e){console.warn('Fallback JSON parse fail:',e)}
+          }
+        }catch(e){console.warn('Fallback extraction error:',e)}
+      }
+
       // ═══ AUTO-LOG FOOD TO DIARY ═══
-      // Food is now logged IMMEDIATELY instead of requiring a separate button click.
-      // This fixes the disconnect where the AI says "logged" but nothing appears in the diary.
       if(foodItems&&foodItems.length>0){
         const meal=userMeal;
         const totalCal=foodItems.reduce((s,i)=>s+(i.cal||0),0);
 
-        // AUTO-LOG: Write to diary state immediately
+        // Write to diary state immediately
         const dl=dayLog(NT.state.currentDate);
         foodItems.forEach(i=>{
           dl[meal].push({
@@ -581,7 +604,6 @@ ${hist}`;
         // Undo handler
         card.querySelector('.undo-log')?.addEventListener('click',()=>{
           const dl2=dayLog(NT.state.currentDate);
-          // Remove the last N items we just added
           const count=foodItems.length;
           dl2[meal].splice(-count,count);
           saveAll();updateDiary();
