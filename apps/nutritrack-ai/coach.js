@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       addMsg("Hey! I'm your AI nutrition coach. I know your body stats, goals, and history — ask me anything about your nutrition! 🧠💪",'ai',false);
       return;
     }
-    chat.messages.forEach(m=>addMsg(m.text,m.role,false));
+    chat.messages.forEach(m=>addMsg(m.text,m.role,false,m.thinking||''));
     chatMsgs.scrollTop=chatMsgs.scrollHeight;
   }
 
@@ -135,10 +135,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 
   // ═══ MESSAGE RENDERING ═══
-  function addMsg(text,role,save=true){
+  function addMsg(text,role,save=true,thinking=''){
     const div=document.createElement('div');div.className='chat-msg '+role;
     if(role==='ai'){
-      div.innerHTML=formatAI(text);
+      let html='';
+      // Thinking dropdown (Gemini-style)
+      if(thinking){
+        html+=`<details class="ai-thinking"><summary><span class="thinking-icon">💭</span> Thought process</summary><div class="thinking-content">${esc(thinking).replace(/\n/g,'<br>')}</div></details>`;
+      }
+      html+=formatAI(text);
+      div.innerHTML=html;
       // Add TTS button
       const ttsBtn=document.createElement('button');
       ttsBtn.className='tts-btn';ttsBtn.title='Read aloud';
@@ -504,9 +510,16 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
       const sentImage=stagedImage;
       clearStagedImage();
 
-      const reply_raw=await aiCall(sp,text,{temperature:0.3,maxTokens:4096,imageData:imgData,signal:currentAbort.signal});
+      const reply_result=await aiCall(sp,text,{temperature:0.3,maxTokens:4096,imageData:imgData,signal:currentAbort.signal});
       hideTyping();
-      let reply=reply_raw;
+      // Unpack thinking from aiCall response
+      let reply,thinkingText='';
+      if(typeof reply_result==='object'&&reply_result.text!==undefined){
+        reply=reply_result.text;
+        thinkingText=reply_result.thinking||'';
+      } else {
+        reply=reply_result;
+      }
 
       // Extract food JSON — try multiple patterns for robustness
       let foodItems=null;
@@ -573,8 +586,8 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
         reply=reply.replace(/<!--\s*WEIGHT_UPDATE\s*:[\s\S]*?-->/,'').trim();
       }
 
-      addMsg(reply,'ai');
-      chat.messages.push({role:'ai',text:reply});
+      addMsg(reply,'ai',true,thinkingText);
+      chat.messages.push({role:'ai',text:reply,thinking:thinkingText||undefined});
       if(chat.messages.length>60)chat.messages=chat.messages.slice(-40);
       saveAll();
 

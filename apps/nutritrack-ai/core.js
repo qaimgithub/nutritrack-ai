@@ -697,7 +697,17 @@ async function aiCall(systemPrompt, userContent, options={}){
         const data=await res.json();
         text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
       }
-      return text.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+      // Strip <think> tags — extract thinking for UI, return clean text
+      let thinking='';
+      const thinkMatch=text.match(/<think>([\s\S]*?)<\/think>/i);
+      if(thinkMatch){
+        thinking=thinkMatch[1].trim();
+        text=text.replace(/<think>[\s\S]*?<\/think>/gi,'').trim();
+      }
+      const clean=text.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+      // Return object with thinking if present, otherwise just the string
+      if(thinking) return {text:clean, thinking};
+      return clean;
     }catch(e){
       if(e.name==='AbortError')throw e;
       console.warn(`${provider} failed:`,e.message);
@@ -726,7 +736,9 @@ RULES:
   const userMsg=isImage?'Analyze this food image and return nutrition JSON:':`Analyze and return JSON: "${input}"`;
   const imgData=isImage?input:null;
   try{
-    const text=await aiCall(sp,userMsg,{temperature:0.1,maxTokens:2048,imageData:imgData});
+    let result=await aiCall(sp,userMsg,{temperature:0.1,maxTokens:2048,imageData:imgData});
+    // aiCall may return {text, thinking} object or plain string
+    const text=typeof result==='string'?result:result.text;
     return JSON.parse(text);
   }catch(e){console.error('AI analyze:',e);return null}
 }
