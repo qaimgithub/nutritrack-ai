@@ -700,6 +700,25 @@
             </div>
         </div>
 
+        <!-- ═══ NUTRITION DETAIL MODAL ═══ -->
+        <div id="nutriDetailModal" class="nutri-detail-modal hidden">
+            <div class="nutri-detail-header">
+                <button id="nutriDetailClose" class="nutri-detail-back">← Back</button>
+                <span class="nutri-detail-title" id="nutriDetailTitle">Food Details</span>
+                <span></span>
+            </div>
+            <div class="nutri-detail-body" id="nutriDetailBody">
+                <div class="nutri-detail-loading" id="nutriDetailLoading">
+                    <div class="nutri-spinner"></div>
+                    <p>Fetching nutritional data...</p>
+                </div>
+                <div id="nutriDetailContent" style="display:none"></div>
+            </div>
+            <div class="nutri-detail-disclaimer">
+                ⚠ Values are estimates based on USDA/verified databases. Actual values may vary by brand, preparation, and serving.
+            </div>
+        </div>
+
         <!-- ═══ TOASTS ═══ -->
         <div id="toastContainer" class="toast-container"></div>
     </div>

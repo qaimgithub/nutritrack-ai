@@ -483,11 +483,191 @@ function renderItems(meal,items){
     const fi=Math.round(item.fiber||0),su=Math.round(item.sugar||0);
     const extraMacros=(fi?`<span class="fi">Fi${fi}g</span>`:'')+
                       (su?`<span class="s">S${su}g</span>`:'');
-    div.innerHTML=`<div class="food-item-info"><div class="food-item-name">${esc(item.name)}</div><div class="food-item-serving">${esc(item.servingText||'')}</div><div class="food-item-macros"><span class="p">P${Math.round(item.protein)}g</span><span class="c">C${Math.round(item.carbs)}g</span><span class="f">F${Math.round(item.fat)}g</span>${extraMacros}</div></div><div class="food-item-cal">${Math.round(item.cal)}</div><button class="food-item-delete" aria-label="Remove"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
+    div.innerHTML=`<div class="food-item-info" style="cursor:pointer"><div class="food-item-name">${esc(item.name)}</div><div class="food-item-serving">${esc(item.servingText||'')}</div><div class="food-item-macros"><span class="p">P${Math.round(item.protein)}g</span><span class="c">C${Math.round(item.carbs)}g</span><span class="f">F${Math.round(item.fat)}g</span>${extraMacros}</div></div><div class="food-item-cal">${Math.round(item.cal)}</div><button class="food-item-delete" aria-label="Remove"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
     div.querySelector('.food-item-delete').addEventListener('click',()=>{dayLog(NT.state.currentDate)[meal].splice(idx,1);saveAll();updateDiary();toast('Removed','info')});
+    // Tap food item info → open nutrition detail
+    div.querySelector('.food-item-info').addEventListener('click',()=>openNutriDetail(item));
     c.appendChild(div);
   });
 }
+
+// ═══ NUTRITION DETAIL MODAL ═══
+const nutriDetailCache=new Map(); // cache by "name|serving"
+
+async function openNutriDetail(item){
+  const modal=NT.$('#nutriDetailModal');
+  const loading=NT.$('#nutriDetailLoading');
+  const content=NT.$('#nutriDetailContent');
+  const title=NT.$('#nutriDetailTitle');
+  if(!modal)return;
+
+  title.textContent=item.name;
+  loading.style.display='flex';
+  content.style.display='none';
+  modal.classList.remove('hidden');
+
+  const cacheKey=`${item.name}|${item.servingText||'1 serving'}`;
+
+  // Check cache first
+  if(nutriDetailCache.has(cacheKey)){
+    renderNutriDetail(nutriDetailCache.get(cacheKey),item);
+    return;
+  }
+
+  // Also check if item already has cached micronutrients
+  if(item._micronutrients){
+    nutriDetailCache.set(cacheKey,item._micronutrients);
+    renderNutriDetail(item._micronutrients,item);
+    return;
+  }
+
+  // Fetch from Gemini API
+  if(!NT.state.geminiKey){
+    content.innerHTML='<p style="text-align:center;color:var(--muted);padding:40px 0">Set your Gemini API key in the More tab to see detailed nutrition.</p>';
+    loading.style.display='none';content.style.display='block';
+    return;
+  }
+
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${NT.state.geminiKey}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        contents:[{parts:[{text:`You are a clinical nutrition database. Return ONLY a JSON object with the full micronutrient breakdown for this food item. Use USDA FoodData Central values. If unsure about a value, use null. Do NOT hallucinate — accuracy matters for health tracking.
+
+Food: ${item.name}
+Serving: ${item.servingText||'1 serving'}
+Known macros: ${Math.round(item.cal)} cal, ${item.protein}g protein, ${item.carbs}g carbs, ${item.fat}g fat
+
+Return this EXACT JSON structure (values as numbers, units as shown, null if unknown):
+{
+  "cholesterol_mg": 0, "sodium_mg": 0, "potassium_mg": 0,
+  "saturated_fat_g": 0, "trans_fat_g": 0, "polyunsaturated_fat_g": 0, "monounsaturated_fat_g": 0,
+  "omega3_mg": 0, "omega6_mg": 0,
+  "vitamin_a_mcg": 0, "vitamin_b1_mg": 0, "vitamin_b2_mg": 0, "vitamin_b3_mg": 0,
+  "vitamin_b5_mg": 0, "vitamin_b6_mg": 0, "vitamin_b9_mcg": 0, "vitamin_b12_mcg": 0,
+  "vitamin_c_mg": 0, "vitamin_d_mcg": 0, "vitamin_e_mg": 0, "vitamin_k_mcg": 0,
+  "calcium_mg": 0, "iron_mg": 0, "magnesium_mg": 0, "phosphorus_mg": 0, "zinc_mg": 0, "selenium_mcg": 0,
+  "glycemic_index": 0, "water_g": 0
+}
+
+Return ONLY the JSON. No markdown, no explanation.`}]}],
+        generationConfig:{temperature:0,maxOutputTokens:1024}
+      })
+    });
+    if(!res.ok)throw new Error('API error');
+    const data=await res.json();
+    let text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    text=text.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    const micro=JSON.parse(text);
+
+    // Cache it
+    nutriDetailCache.set(cacheKey,micro);
+    item._micronutrients=micro;
+    saveAll();
+
+    renderNutriDetail(micro,item);
+  }catch(e){
+    console.error('Nutrition detail fetch error:',e);
+    content.innerHTML='<p style="text-align:center;color:var(--danger);padding:40px 0">Could not fetch nutrition data. Try again.</p>';
+    loading.style.display='none';content.style.display='block';
+  }
+}
+
+function renderNutriDetail(micro,item){
+  const loading=NT.$('#nutriDetailLoading');
+  const content=NT.$('#nutriDetailContent');
+  loading.style.display='none';
+  content.style.display='block';
+
+  function val(v,unit){
+    if(v===null||v===undefined)return'<span class="nd-value na">N/A</span>';
+    return`<span class="nd-value">${typeof v==='number'?Math.round(v*10)/10:v}${unit}</span>`;
+  }
+  function row(name,v,unit,dv){
+    let dvHtml='';
+    if(dv&&v!==null&&v!==undefined){
+      const pct=Math.round(v/dv*100);
+      dvHtml=`<span class="nd-dv">${pct}% DV</span>`;
+    }
+    return`<div class="nd-row"><span class="nd-nutrient">${name}</span><div>${val(v,unit)}${dvHtml}</div></div>`;
+  }
+
+  content.innerHTML=`
+    <div class="nd-hero">
+      <div class="nd-food-name">${esc(item.name)}</div>
+      <div class="nd-serving">${esc(item.servingText||'1 serving')}</div>
+    </div>
+    <div class="nd-macro-grid">
+      <div class="nd-macro-card"><div class="nd-macro-val">${Math.round(item.cal)}</div><div class="nd-macro-label">Calories</div></div>
+      <div class="nd-macro-card" style="border-color:var(--protein)"><div class="nd-macro-val" style="color:var(--protein)">${Math.round(item.protein)}g</div><div class="nd-macro-label">Protein</div></div>
+      <div class="nd-macro-card" style="border-color:var(--carbs)"><div class="nd-macro-val" style="color:var(--carbs)">${Math.round(item.carbs)}g</div><div class="nd-macro-label">Carbs</div></div>
+      <div class="nd-macro-card" style="border-color:var(--fat)"><div class="nd-macro-val" style="color:var(--fat)">${Math.round(item.fat)}g</div><div class="nd-macro-label">Fat</div></div>
+    </div>
+
+    <div class="nd-section">
+      <div class="nd-section-title">Fats Breakdown</div>
+      <div class="nd-table">
+        ${row('Saturated Fat',micro.saturated_fat_g,'g',20)}
+        ${row('Trans Fat',micro.trans_fat_g,'g')}
+        ${row('Monounsaturated',micro.monounsaturated_fat_g,'g')}
+        ${row('Polyunsaturated',micro.polyunsaturated_fat_g,'g')}
+        ${row('Omega-3',micro.omega3_mg,'mg')}
+        ${row('Omega-6',micro.omega6_mg,'mg')}
+        ${row('Cholesterol',micro.cholesterol_mg,'mg',300)}
+      </div>
+    </div>
+
+    <div class="nd-section">
+      <div class="nd-section-title">Minerals</div>
+      <div class="nd-table">
+        ${row('Sodium (Salt)',micro.sodium_mg,'mg',2300)}
+        ${row('Potassium',micro.potassium_mg,'mg',2600)}
+        ${row('Calcium',micro.calcium_mg,'mg',1000)}
+        ${row('Iron',micro.iron_mg,'mg',18)}
+        ${row('Magnesium',micro.magnesium_mg,'mg',400)}
+        ${row('Phosphorus',micro.phosphorus_mg,'mg',700)}
+        ${row('Zinc',micro.zinc_mg,'mg',11)}
+        ${row('Selenium',micro.selenium_mcg,'mcg',55)}
+      </div>
+    </div>
+
+    <div class="nd-section">
+      <div class="nd-section-title">Vitamins</div>
+      <div class="nd-table">
+        ${row('Vitamin A',micro.vitamin_a_mcg,'mcg',900)}
+        ${row('Vitamin B1 (Thiamin)',micro.vitamin_b1_mg,'mg',1.2)}
+        ${row('Vitamin B2 (Riboflavin)',micro.vitamin_b2_mg,'mg',1.3)}
+        ${row('Vitamin B3 (Niacin)',micro.vitamin_b3_mg,'mg',16)}
+        ${row('Vitamin B5 (Pantothenic)',micro.vitamin_b5_mg,'mg',5)}
+        ${row('Vitamin B6',micro.vitamin_b6_mg,'mg',1.7)}
+        ${row('Vitamin B9 (Folate)',micro.vitamin_b9_mcg,'mcg',400)}
+        ${row('Vitamin B12',micro.vitamin_b12_mcg,'mcg',2.4)}
+        ${row('Vitamin C',micro.vitamin_c_mg,'mg',90)}
+        ${row('Vitamin D',micro.vitamin_d_mcg,'mcg',20)}
+        ${row('Vitamin E',micro.vitamin_e_mg,'mg',15)}
+        ${row('Vitamin K',micro.vitamin_k_mcg,'mcg',120)}
+      </div>
+    </div>
+
+    <div class="nd-section">
+      <div class="nd-section-title">Other</div>
+      <div class="nd-table">
+        ${row('Fiber',item.fiber,'g',28)}
+        ${row('Sugar',item.sugar,'g')}
+        ${row('Water Content',micro.water_g,'g')}
+        ${row('Glycemic Index',micro.glycemic_index,'')}
+      </div>
+    </div>`;
+}
+
+// Close handler
+document.addEventListener('DOMContentLoaded',()=>{
+  const closeBtn=NT.$('#nutriDetailClose');
+  const modal=NT.$('#nutriDetailModal');
+  if(closeBtn&&modal){
+    closeBtn.addEventListener('click',()=>modal.classList.add('hidden'));
+  }
+});
 
 function renderExercise(){
   const c=NT.$('#exerciseItems');c.innerHTML='';
