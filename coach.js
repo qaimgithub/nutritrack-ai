@@ -579,7 +579,7 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
       if(foodDetected&&!foodItems){
         console.warn('Food detected but no JSON in response — running fallback extraction');
         try{
-          const extractRes=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${NT.state.geminiKey}`,{
+          const extractRes=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`,{
             method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({contents:[{parts:[{text:`Extract ALL food items from this nutrition response and return ONLY a JSON array. No markdown, no text, no explanation — just the raw JSON array.
 

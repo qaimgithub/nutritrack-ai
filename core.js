@@ -483,8 +483,12 @@ function renderItems(meal,items){
     const fi=Math.round(item.fiber||0),su=Math.round(item.sugar||0);
     const extraMacros=(fi?`<span class="fi">Fi${fi}g</span>`:'')+
                       (su?`<span class="s">S${su}g</span>`:'');
-    div.innerHTML=`<div class="food-item-info" style="cursor:pointer"><div class="food-item-name">${esc(item.name)}</div><div class="food-item-serving">${esc(item.servingText||'')}</div><div class="food-item-macros"><span class="p">P${Math.round(item.protein)}g</span><span class="c">C${Math.round(item.carbs)}g</span><span class="f">F${Math.round(item.fat)}g</span>${extraMacros}</div></div><div class="food-item-cal">${Math.round(item.cal)}</div><button class="food-item-delete" aria-label="Remove"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
+    const hasDbEntry=item.foodId&&item.foodId!=='ai_coach'&&item.foodId!=='ai_photo';
+    div.innerHTML=`<div class="food-item-info" style="cursor:pointer"><div class="food-item-name">${esc(item.name)}</div><div class="food-item-serving">${esc(item.servingText||'')}</div><div class="food-item-macros"><span class="p">P${Math.round(item.protein)}g</span><span class="c">C${Math.round(item.carbs)}g</span><span class="f">F${Math.round(item.fat)}g</span>${extraMacros}</div></div><div class="food-item-cal">${Math.round(item.cal)}</div>${hasDbEntry?`<button class="food-item-edit" aria-label="Edit" data-fid="${item.foodId}" data-meal="${meal}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}<button class="food-item-delete" aria-label="Remove"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
     div.querySelector('.food-item-delete').addEventListener('click',()=>{dayLog(NT.state.currentDate)[meal].splice(idx,1);saveAll();updateDiary();toast('Removed','info')});
+    // Edit button → open food modal for portion editing
+    const editBtn=div.querySelector('.food-item-edit');
+    if(editBtn)editBtn.addEventListener('click',(e)=>{e.stopPropagation();openFoodModal(item.foodId,meal)});
     // Tap food item info → open nutrition detail
     div.querySelector('.food-item-info').addEventListener('click',()=>openNutriDetail(item));
     c.appendChild(div);
@@ -529,16 +533,23 @@ async function openNutriDetail(item){
   }
 
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${NT.state.geminiKey}`,{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        contents:[{parts:[{text:`You are a clinical nutrition database. Return ONLY a JSON object with the full micronutrient breakdown for this food item. Use USDA FoodData Central values. If unsure about a value, use null. Do NOT hallucinate — accuracy matters for health tracking.
+        contents:[{parts:[{text:`You are a clinical nutrition database lookup tool. Your job is to return accurate micronutrient data for the given food item based on USDA FoodData Central and verified nutrition sources.
+
+RULES:
+1. For common foods (eggs, bread, rice, chicken, oil, milk, fruits, vegetables, etc.) — you MUST provide real values. These are well-documented. Do NOT use null for well-known nutrients of common foods.
+2. Use null ONLY for genuinely unknown or highly variable values (e.g., omega-3 in a proprietary brand sauce, or glycemic index of an uncommon dish).
+3. Do NOT hallucinate. If you're truly unsure, use null. But do NOT be lazy — most nutrients for standard foods are well-documented in USDA databases.
+4. Values must be for the SPECIFIC serving size stated, not per 100g.
+5. This data is for health tracking. Accuracy matters.
 
 Food: ${item.name}
 Serving: ${item.servingText||'1 serving'}
 Known macros: ${Math.round(item.cal)} cal, ${item.protein}g protein, ${item.carbs}g carbs, ${item.fat}g fat
 
-Return this EXACT JSON structure (values as numbers, units as shown, null if unknown):
+Return this EXACT JSON structure (values as numbers, null only if genuinely unknown):
 {
   "cholesterol_mg": 0, "sodium_mg": 0, "potassium_mg": 0,
   "saturated_fat_g": 0, "trans_fat_g": 0, "polyunsaturated_fat_g": 0, "monounsaturated_fat_g": 0,
@@ -550,15 +561,22 @@ Return this EXACT JSON structure (values as numbers, units as shown, null if unk
   "glycemic_index": 0, "water_g": 0
 }
 
-Return ONLY the JSON. No markdown, no explanation.`}]}],
+Return ONLY the raw JSON object. No markdown, no explanation, no code fences.`}]}],
         generationConfig:{temperature:0,maxOutputTokens:1024}
       })
     });
-    if(!res.ok)throw new Error('API error');
+    if(!res.ok){
+      const errBody=await res.text().catch(()=>'');
+      throw new Error(`API ${res.status}: ${errBody.slice(0,100)}`);
+    }
     const data=await res.json();
     let text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
     text=text.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
-    const micro=JSON.parse(text);
+    let micro;
+    try{micro=JSON.parse(text)}catch(pe){
+      console.warn('Micro JSON parse failed, raw:',text);
+      throw new Error('Invalid response format');
+    }
 
     // Cache it
     nutriDetailCache.set(cacheKey,micro);
@@ -568,7 +586,7 @@ Return ONLY the JSON. No markdown, no explanation.`}]}],
     renderNutriDetail(micro,item);
   }catch(e){
     console.error('Nutrition detail fetch error:',e);
-    content.innerHTML='<p style="text-align:center;color:var(--danger);padding:40px 0">Could not fetch nutrition data. Try again.</p>';
+    content.innerHTML=`<p style="text-align:center;color:var(--danger);padding:40px 0">Could not fetch nutrition data.<br><span style="font-size:.65rem;color:var(--muted)">${esc(e.message)}</span></p>`;
     loading.style.display='none';content.style.display='block';
   }
 }
