@@ -1,5 +1,5 @@
 // NutriTrack AI — Service Worker (offline caching)
-const CACHE='nutritrack-v15';
+const CACHE='nutritrack-v16';
 const ASSETS=['./index.html','./style.css','./core.js','./features.js','./coach.js','./body.js','./food-db.js'];
 
 self.addEventListener('install',e=>{
@@ -19,11 +19,12 @@ self.addEventListener('activate',e=>{
 });
 
 self.addEventListener('fetch',e=>{
-  // API calls: network only
-  if(e.request.url.includes('googleapis.com')){
+  // API calls: network only (Gemini + Groq)
+  if(e.request.url.includes('googleapis.com')||e.request.url.includes('api.groq.com')){
     e.respondWith(fetch(e.request).catch(()=>new Response('{"error":"offline"}',{headers:{'Content-Type':'application/json'}})));
     return;
   }
+
   // App files: network-first, fallback to cache (so updates always load)
   e.respondWith(
     fetch(e.request).then(res=>{

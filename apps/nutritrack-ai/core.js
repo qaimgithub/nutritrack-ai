@@ -17,8 +17,7 @@ function toast(msg,type='info'){const el=document.createElement('div');el.classN
 
 // Tab Navigation
 document.addEventListener('DOMContentLoaded',()=>{
-  // Gemini key loaded from localStorage only — user enters it in Settings
-  if(!NT.state.geminiKey){NT.state.geminiKey=load('nt_gemini')||''}
+  // AI keys loaded from localStorage — user enters them in Settings
   
   NT.$$('.nav-tab').forEach(tab=>{
     tab.addEventListener('click',()=>{
@@ -71,7 +70,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       items.forEach(i=>log[meal].push(i));saveAll();updateDiary();
       toast(`Added ${items.length} item${items.length>1?'s':''} to ${meal}`,'success');qi.value='';return;
     }
-    if(NT.state.geminiKey){
+    if(hasAiKey()){
       NT.$('#aiProcessing').classList.remove('hidden');
       const ai=await geminiAnalyze(v);
       NT.$('#aiProcessing').classList.add('hidden');
@@ -90,7 +89,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   NT.$('#photoBtn').addEventListener('click',()=>NT.$('#photoInput').click());
   NT.$('#photoInput').addEventListener('change',async e=>{
     const f=e.target.files[0];if(!f)return;
-    if(!NT.state.geminiKey){toast('Set Gemini key in More tab','error');return}
+    if(!hasAiKey()){toast('Set a Groq or Gemini key in More tab','error');return}
     NT.$('#aiProcessing').classList.remove('hidden');
     try{
       const b64=await new Promise((r,j)=>{const rd=new FileReader();rd.onload=()=>r(rd.result.split(',')[1]);rd.onerror=j;rd.readAsDataURL(f)});
