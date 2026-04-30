@@ -1,11 +1,32 @@
 # Agent Instructions
 
-You're working inside the **WAT framework** (Workflows, Agents, Tools). This architecture separates concerns so that probabilistic AI handles reasoning while deterministic code handles execution. That separation is what makes this system reliable.
+You're working inside a **multi-app workspace** powered by the **WAT framework** (Workflows, Agents, Tools). Each app is a self-contained project under `apps/`, while shared infrastructure lives at the repo root.
+
+## Workspace Structure
+
+```
+apps/                    # Each app gets its own directory
+  nutritrack-ai/         # AI-powered nutrition tracker (PWA, GitHub Pages)
+  <next-app>/            # Future apps go here
+tools/                   # Shared Python scripts for deterministic execution
+workflows/               # Shared Markdown SOPs defining cross-app processes
+.env                     # API keys and environment variables (NEVER store secrets anywhere else)
+.tmp/                    # Temporary files (disposable, regenerated as needed)
+CLAUDE.md                # This file — repo-level agent instructions
+```
+
+## App-Level Rules
+
+Each app directory under `apps/` should be **self-contained**:
+- Its own `index.html`, styles, scripts, manifest, service worker
+- Its own `README.md` describing what the app does and how to deploy
+- App-specific workflows go inside the app directory (e.g., `apps/nutritrack-ai/food-tracker-v1.md`)
+- App-specific tools go inside the app directory if they only serve that app
 
 ## The WAT Architecture
 
 **Layer 1: Workflows (The Instructions)**
-- Markdown SOPs stored in `workflows/`
+- Markdown SOPs stored in `workflows/` (shared) or inside each app directory (app-specific)
 - Each workflow defines the objective, required inputs, which tools to use, expected outputs, and how to handle edge cases
 - Written in plain language, the same way you'd brief someone on your team
 
@@ -13,10 +34,9 @@ You're working inside the **WAT framework** (Workflows, Agents, Tools). This arc
 - This is your role. You're responsible for intelligent coordination.
 - Read the relevant workflow, run tools in the correct sequence, handle failures gracefully, and ask clarifying questions when needed
 - You connect intent to execution without trying to do everything yourself
-- Example: If you need to pull data from a website, don't attempt it directly. Read `workflows/scrape_website.md`, figure out the required inputs, then execute `tools/scrape_single_site.py`
 
 **Layer 3: Tools (The Execution)**
-- Python scripts in `tools/` that do the actual work
+- Python scripts in `tools/` (shared) or inside app directories (app-specific)
 - API calls, data transformations, file operations, database queries
 - Credentials and API keys are stored in `.env`
 - These scripts are consistent, testable, and fast
@@ -26,17 +46,16 @@ You're working inside the **WAT framework** (Workflows, Agents, Tools). This arc
 ## How to Operate
 
 **1. Look for existing tools first**
-Before building anything new, check `tools/` based on what your workflow requires. Only create new scripts when nothing exists for that task.
+Before building anything new, check `tools/` and the relevant app's directory. Only create new scripts when nothing exists for that task.
 
 **2. Learn and adapt when things fail**
 When you hit an error:
 - Read the full error message and trace
 - Fix the script and retest (if it uses paid API calls or credits, check with me before running again)
 - Document what you learned in the workflow (rate limits, timing quirks, unexpected behavior)
-- Example: You get rate-limited on an API, so you dig into the docs, discover a batch endpoint, refactor the tool to use it, verify it works, then update the workflow so this never happens again
 
 **3. Keep workflows current**
-Workflows should evolve as you learn. When you find better methods, discover constraints, or encounter recurring issues, update the workflow. That said, don't create or overwrite workflows without asking unless I explicitly tell you to. These are your instructions and need to be preserved and refined, not tossed after one use.
+Workflows should evolve as you learn. When you find better methods, discover constraints, or encounter recurring issues, update the workflow. That said, don't create or overwrite workflows without asking unless I explicitly tell you to.
 
 ## The Self-Improvement Loop
 
@@ -47,24 +66,14 @@ Every failure is a chance to make the system stronger:
 4. Update the workflow with the new approach
 5. Move on with a more robust system
 
-This loop is how the framework improves over time.
+## Creating a New App
 
-## File Structure
-
-**What goes where:**
-- **Deliverables**: Final outputs go to cloud services (Google Sheets, Slides, etc.) where I can access them directly
-- **Intermediates**: Temporary processing files that can be regenerated
-
-**Directory layout:**
-```
-.tmp/           # Temporary files (scraped data, intermediate exports). Regenerated as needed.
-tools/          # Python scripts for deterministic execution
-workflows/      # Markdown SOPs defining what to do and how
-.env            # API keys and environment variables (NEVER store secrets anywhere else)
-credentials.json, token.json  # Google OAuth (gitignored)
-```
-
-**Core principle:** Local files are just for processing. Anything I need to see or use lives in cloud services. Everything in `.tmp/` is disposable.
+When starting a new app:
+1. Create a directory under `apps/` with a kebab-case name (e.g., `apps/my-new-app/`)
+2. Set up the app's own files (HTML, CSS, JS, etc.)
+3. Add a `README.md` with a description and deployment notes
+4. If the app has app-specific workflows or tools, keep them inside the app directory
+5. Update the root landing page (`index.html`) to include the new app
 
 ## Deployment Rules
 
@@ -72,9 +81,9 @@ credentials.json, token.json  # Google OAuth (gitignored)
 1. `git add -A`
 2. `git commit -m "descriptive message"`
 3. `git push origin main`
-4. Bump `sw.js` cache version (e.g. `nutritrack-v3` → `nutritrack-v4`) so phones/PWAs pick up the new files
+4. If the app uses a service worker, bump its cache version so PWAs pick up changes
 
-This is non-negotiable. The app is served via GitHub Pages — if it's not pushed, it's not deployed.
+This is non-negotiable. Apps are served via GitHub Pages — if it's not pushed, it's not deployed.
 
 ## Bottom Line
 
