@@ -598,7 +598,7 @@ ${hist}`;
 
   // ═══ EVENT LISTENERS ═══
   chatSend.addEventListener('click',()=>sendChat(chatIn.value));
-  chatIn.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat(chatIn.value)}});
+  chatIn.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();sendChat(chatIn.value)}});
   chatIn.addEventListener('input',()=>{chatIn.style.height='auto';chatIn.style.height=Math.min(chatIn.scrollHeight,100)+'px'});
 
   // Stop button
