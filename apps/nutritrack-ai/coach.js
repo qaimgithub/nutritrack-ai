@@ -456,14 +456,23 @@ Use the exact exercise name from the templates above.`;
     const userMeal=detectMeal(text);
 
     const foodRule=foodDetected?`
-The user is LOGGING FOOD they ate. For this:
-- Break down into components in a markdown table with columns: Food | Serving | Cal | P(g) | C(g) | F(g). Include a TOTAL row.
-- Use ACCURATE calorie values from USDA/IFCT databases. Common reference values:
-  * Chapati/Roti (medium, ~40g each): 120 cal. 126g chapati ≈ 3 chapatis ≈ 360 cal.
-  * Cooked white rice: 130 cal/100g. Raw chicken breast: 120 cal/100g (NOT 165 — that's cooked).
-  * Whole egg: 75 cal. Paratha: 200 cal each. Naan: 260 cal each.
-  * Cooked dal/lentils: 115 cal/100g. Milk (whole): 62 cal/100ml.
-- Calories MUST be for the TOTAL stated portion, not per 100g.
+The user is LOGGING FOOD they ate. You must be PRECISE and INTELLIGENT about this:
+
+STEP 1 — IDENTIFY & REASON:
+- Identify every food item and its quantity.
+- If a photo is attached with a NUTRITION LABEL, READ the label — it's the most accurate source.
+- For packaged/branded foods (Dawn bread, Sabroso, K&N's), use published brand nutrition info.
+- For home-cooked South Asian food: reason about what goes INTO the dish — protein source + cooking fat (oil/ghee, typically 1-2 tbsp per serving = 120-250 cal) + carb base + spices.
+- For unknown foods, reason from first principles: what are the ingredients? How is it cooked? What's a realistic portion?
+
+STEP 2 — CALCULATE:
+- Show a markdown table: Food | Serving | Cal | P(g) | C(g) | F(g). Include a TOTAL row.
+- Anchor to USDA/IFCT reference values:
+  * Chapati/Roti (~40g): 120 cal. Paratha (~80g): 260 cal. Naan (~90g): 260 cal.
+  * Cooked rice: 130 cal/100g. Cooked chicken: 165 cal/100g. Raw chicken: 120 cal/100g.
+  * Egg: 75 cal. Dal (cooked): 115 cal/100g. Oil/Ghee: ~120 cal/tbsp.
+  * Milk (whole): 62 cal/100ml. Dahi/Yogurt: 60 cal/100g.
+- Calories = total for the ENTIRE stated portion, NEVER per 100g.
 - This food WILL BE AUTO-LOGGED to their **${userMeal}** diary. Tell them it's been logged.
 
 CRITICAL — YOU MUST DO THIS OR THE APP BREAKS:

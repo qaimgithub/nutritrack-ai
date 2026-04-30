@@ -128,6 +128,10 @@ const FOOD_DB = [
 {id:"chapli_kabab_chicken",name:"Chapli Kabab Chicken (frozen)",cal:210,protein:14,carbs:12,fat:12,fiber:1,sugar:1,servings:[{name:"kabab",g:90},{name:"g",g:1}]},
 {id:"seekh_kabab_chicken",name:"Seekh Kabab Chicken (frozen)",cal:175,protein:16,carbs:6,fat:10,fiber:0.5,sugar:0.8,servings:[{name:"kabab",g:75},{name:"g",g:1}]},
 {id:"oats_chicken_masala",name:"Oats Chicken Masala (instant)",cal:380,protein:12,carbs:60,fat:10,fiber:6,sugar:3,servings:[{name:"packet",g:40},{name:"cup prepared",g:200},{name:"g",g:1}]},
+{id:"behari_boti",name:"Chicken Behari Boti",cal:165,protein:22,carbs:5,fat:6.5,fiber:0.5,sugar:1.5,servings:[{name:"serving (6 pcs)",g:200},{name:"piece",g:35},{name:"g",g:1}]},
+{id:"dawn_bread",name:"Dawn Bread (sliced)",cal:280,protein:8,carbs:50,fat:4,fiber:2.5,sugar:5,servings:[{name:"slice",g:25},{name:"g",g:1}]},
+{id:"fried_rice",name:"Fried Rice (chicken & veggies)",cal:155,protein:8,carbs:22,fat:4.5,fiber:1,sugar:1,servings:[{name:"plate",g:300},{name:"cup",g:200},{name:"g",g:1}]},
+{id:"chicken_chilli_dry",name:"Chicken Chilli Dry",cal:175,protein:16,carbs:10,fat:8,fiber:1,sugar:3,servings:[{name:"serving",g:200},{name:"cup",g:180},{name:"g",g:1}]},
 ];
 
 // Aliases for natural language matching
@@ -194,6 +198,10 @@ const FOOD_ALIASES = {
     "bun kabab":"bun_kabab","bun kebab":"bun_kabab","anday wala":"bun_kabab","daal wala kabab":"bun_kabab","daal kabab":"bun_kabab",
     "chapli kabab":"chapli_kabab_chicken","chapli":"chapli_kabab_chicken","sabroso chapli":"chapli_kabab_chicken","sabroso":"chapli_kabab_chicken",
     "oats masala":"oats_chicken_masala","oats chicken":"oats_chicken_masala","chicken oats":"oats_chicken_masala","masala oats":"oats_chicken_masala",
+    "behari boti":"behari_boti","behari":"behari_boti","boti":"behari_boti","chicken boti":"behari_boti",
+    "dawn bread":"dawn_bread","bread slice":"dawn_bread",
+    "fried rice":"fried_rice","chicken fried rice":"fried_rice",
+    "chilli dry":"chicken_chilli_dry","chicken chilli":"chicken_chilli_dry","chicken chili":"chicken_chilli_dry","chilli chicken":"chicken_chilli_dry",
     "oatmeal":"oatmeal","oats":"oatmeal","porridge":"oatmeal",
     "granola":"granola","cereal":"cereal_cornflakes","cornflakes":"cereal_cornflakes",
     "tortilla":"tortilla_flour","wrap":"tortilla_flour",

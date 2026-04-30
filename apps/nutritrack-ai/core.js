@@ -720,20 +720,37 @@ async function aiCall(systemPrompt, userContent, options={}){
 
 async function geminiAnalyze(input,isImage=false){
   if(!hasAiKey())return null;
-  const sp=`You are a nutrition analyzer for a calorie tracking app.
+  const sp=`You are a precision nutrition analyzer. Your job: return accurate calorie and macro data.
 
-RULES:
-1. Return ONLY a valid JSON array. No markdown, no text, no code fences.
-2. Format: [{"name":"string","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"servingText":"string"}]
-3. Break down each component separately.
-4. Use ACCURATE values from USDA/IFCT databases. Key references:
-   - Raw chicken breast: 120 cal/100g (NOT 165 — that's cooked). Cooked: 165 cal/100g.
-   - Chapati/Roti (medium ~40g): 120 cal each. Paratha: 200 cal each. Naan: 260 cal each.
-   - Cooked white rice: 130 cal/100g. Cooked dal/lentils: 115 cal/100g.
-   - Whole egg: 75 cal. Milk (whole): 62 cal/100ml.
-5. cal = total calories for the ENTIRE stated portion, not per 100g.
-6. servingText MUST include grams in parentheses, e.g. "2 chapatis (80g)" or "1 cup rice (200g)".`;
-  const userMsg=isImage?'Analyze this food image and return nutrition JSON:':`Analyze and return JSON: "${input}"`;
+OUTPUT FORMAT (strict):
+Return ONLY a valid JSON array. No markdown, no text, no code fences, no thinking tags.
+Format: [{"name":"string","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"servingText":"string"}]
+
+HOW TO ANALYZE:
+
+FOR IMAGES:
+1. FIRST check if there is a NUTRITION LABEL or PACKAGING visible. If yes, READ the label values directly — they are the most accurate source. Extract serving size, calories, protein, carbs, fat from the printed label.
+2. If no label visible, identify each food item visually. Estimate portion size using visual cues (plate size ~25cm, hand comparison, typical restaurant serving).
+3. For packaged/branded foods (e.g. Dawn bread, Sabroso, K&N's), use the known published nutrition info for that brand.
+
+FOR TEXT:
+1. Identify each food item and the stated quantity.
+2. Think about what goes INTO the dish — main ingredient + oil/ghee + spices + sides.
+3. South Asian home-cooked dishes typically use 1-2 tbsp oil/ghee per serving (120-250 extra cal). Account for this.
+
+ACCURACY RULES:
+- cal = total calories for the ENTIRE stated portion, NOT per 100g.
+- servingText MUST include grams, e.g. "2 chapatis (80g)" or "1 cup rice (200g)".
+- Break down mixed meals into components (e.g. biryani plate → rice portion + meat portion + raita).
+- NEVER guess randomly. Reason from USDA/IFCT data:
+  * Cooked chicken: 165 cal/100g. Raw chicken: 120 cal/100g.
+  * Cooked rice: 130 cal/100g. Chapati (40g): 120 cal. Naan (90g): 260 cal.
+  * Oil/Ghee: 120 cal per tbsp. Butter: 100 cal per tbsp.
+  * Egg: 75 cal. Whole milk: 62 cal/100ml.
+  * Dal/lentils (cooked): 115 cal/100g.
+- For unknown/complex foods, estimate by reasoning about ingredients and cooking method.
+- When a specific brand or weight is mentioned (e.g. "Dawn bread 25g"), use THAT exact weight.`;
+  const userMsg=isImage?'Analyze this food image. If there is a nutrition label visible, READ it and use those exact values. Otherwise identify all food items and estimate portions accurately. Return nutrition JSON:':`Analyze and return JSON: "${input}"`;
   const imgData=isImage?input:null;
   try{
     let result=await aiCall(sp,userMsg,{temperature:0.1,maxTokens:2048,imageData:imgData});
