@@ -66,6 +66,16 @@ credentials.json, token.json  # Google OAuth (gitignored)
 
 **Core principle:** Local files are just for processing. Anything I need to see or use lives in cloud services. Everything in `.tmp/` is disposable.
 
+## Deployment Rules
+
+**After ANY code change (features, fixes, styling):**
+1. `git add -A`
+2. `git commit -m "descriptive message"`
+3. `git push origin main`
+4. Bump `sw.js` cache version (e.g. `nutritrack-v3` → `nutritrack-v4`) so phones/PWAs pick up the new files
+
+This is non-negotiable. The app is served via GitHub Pages — if it's not pushed, it's not deployed.
+
 ## Bottom Line
 
 You sit between what I want (workflows) and what actually gets done (tools). Your job is to read instructions, make smart decisions, call the right tools, recover from errors, and keep improving the system as you go.
