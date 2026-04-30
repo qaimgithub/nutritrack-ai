@@ -483,12 +483,8 @@ function renderItems(meal,items){
     const fi=Math.round(item.fiber||0),su=Math.round(item.sugar||0);
     const extraMacros=(fi?`<span class="fi">Fi${fi}g</span>`:'')+
                       (su?`<span class="s">S${su}g</span>`:'');
-    const hasDbEntry=item.foodId&&item.foodId!=='ai_coach'&&item.foodId!=='ai_photo';
-    div.innerHTML=`<div class="food-item-info" style="cursor:pointer"><div class="food-item-name">${esc(item.name)}</div><div class="food-item-serving">${esc(item.servingText||'')}</div><div class="food-item-macros"><span class="p">P${Math.round(item.protein)}g</span><span class="c">C${Math.round(item.carbs)}g</span><span class="f">F${Math.round(item.fat)}g</span>${extraMacros}</div></div><div class="food-item-cal">${Math.round(item.cal)}</div>${hasDbEntry?`<button class="food-item-edit" aria-label="Edit" data-fid="${item.foodId}" data-meal="${meal}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}<button class="food-item-delete" aria-label="Remove"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
-    div.querySelector('.food-item-delete').addEventListener('click',()=>{dayLog(NT.state.currentDate)[meal].splice(idx,1);saveAll();updateDiary();toast('Removed','info')});
-    // Edit button → open food modal for portion editing
-    const editBtn=div.querySelector('.food-item-edit');
-    if(editBtn)editBtn.addEventListener('click',(e)=>{e.stopPropagation();openFoodModal(item.foodId,meal)});
+    div.innerHTML=`<div class="food-item-info" style="cursor:pointer"><div class="food-item-name">${esc(item.name)}</div><div class="food-item-serving">${esc(item.servingText||'')}</div><div class="food-item-macros"><span class="p">P${Math.round(item.protein)}g</span><span class="c">C${Math.round(item.carbs)}g</span><span class="f">F${Math.round(item.fat)}g</span>${extraMacros}</div></div><div class="food-item-cal">${Math.round(item.cal)}</div><button class="food-item-delete" aria-label="Remove"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg></button>`;
+    div.querySelector('.food-item-delete').addEventListener('click',(e)=>{e.stopPropagation();dayLog(NT.state.currentDate)[meal].splice(idx,1);saveAll();updateDiary();toast('Removed','info')});
     // Tap food item info → open nutrition detail
     div.querySelector('.food-item-info').addEventListener('click',()=>openNutriDetail(item));
     c.appendChild(div);
@@ -566,16 +562,35 @@ Return ONLY the raw JSON object. No markdown, no explanation, no code fences.`}]
       })
     });
     if(!res.ok){
+      if(res.status===429){
+        throw new Error('Rate limit reached. Wait ~60 seconds and try again.');
+      }
       const errBody=await res.text().catch(()=>'');
-      throw new Error(`API ${res.status}: ${errBody.slice(0,100)}`);
+      throw new Error(`API ${res.status}: ${errBody.slice(0,200)}`);
     }
     const data=await res.json();
     let text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    
+    // Robust JSON extraction — try multiple approaches
     text=text.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
     let micro;
-    try{micro=JSON.parse(text)}catch(pe){
-      console.warn('Micro JSON parse failed, raw:',text);
-      throw new Error('Invalid response format');
+    // Try 1: direct parse
+    try{micro=JSON.parse(text)}catch(e1){
+      // Try 2: extract first {...} block
+      const jsonMatch=text.match(/\{[\s\S]*\}/);
+      if(jsonMatch){
+        try{micro=JSON.parse(jsonMatch[0])}catch(e2){
+          // Try 3: clean common issues (trailing commas, comments)
+          let cleaned=jsonMatch[0].replace(/,\s*}/g,'}').replace(/,\s*]/g,']').replace(/\/\/.*$/gm,'');
+          try{micro=JSON.parse(cleaned)}catch(e3){
+            console.warn('All JSON parse attempts failed. Raw:',text.slice(0,300));
+            throw new Error('Invalid response format — model returned non-JSON');
+          }
+        }
+      } else {
+        console.warn('No JSON object found in response. Raw:',text.slice(0,300));
+        throw new Error('No nutrition data in response');
+      }
     }
 
     // Cache it
