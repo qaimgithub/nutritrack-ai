@@ -445,12 +445,18 @@ The user is LOGGING FOOD they ate. For this:
 - Break down into components in a markdown table with columns: Food | Serving | Cal | P(g) | C(g) | F(g). Include a TOTAL row.
 - Raw chicken breast = 120 cal/100g (NOT 165 — that's cooked). Assume raw unless stated.
 - Calories for the TOTAL stated portion, not per 100g.
-- This food WILL BE AUTO-LOGGED to their **${userMeal}** diary. Tell them it's been logged. Do NOT say "would you like me to log it?" — it is automatic.
+- This food WILL BE AUTO-LOGGED to their **${userMeal}** diary. Any previous AI-logged items in ${userMeal} will be REPLACED. Tell them it's been logged.
 
 CRITICAL — YOU MUST DO THIS OR THE APP BREAKS:
 After your response, on the VERY LAST LINE, you MUST add this hidden HTML comment with the food data as JSON:
 <!--FOOD_JSON:[{"name":"Seeded Bread","cal":110,"protein":4.6,"carbs":11.5,"fat":5.1,"fiber":1,"sugar":0.5,"servingText":"1 slice"}]-->
-The JSON array MUST contain one object per food item. Numbers MUST match your table. DO NOT forget this line. Without it, NOTHING gets saved.`:'';
+The JSON array MUST contain one object per food item. Numbers MUST match your table. DO NOT forget this line. Without it, NOTHING gets saved.
+
+WATER LOGGING:
+If the user mentions drinking water (e.g. "a glass of water", "log water", "drank water"), ALSO add this on a separate line:
+<!--WATER_JSON:1-->
+The number is how many glasses. This is IN ADDITION to the FOOD_JSON line if there is food too.`:'';
+
 
     const sp=`You are NutriTrack AI Coach — a friendly, knowledgeable nutrition expert who knows this user personally. Talk like a real person, not a robot.
 
@@ -511,6 +517,20 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
       }
       // Clean all food JSON markers from the reply
       reply=reply.replace(/<!--\s*FOOD_JSON\s*:\s*\[[\s\S]*?\]\s*-->/g,'').trim();
+
+      // Extract water JSON
+      let waterGlasses=0;
+      const waterMatch=reply.match(/<!--\s*WATER_JSON\s*:\s*(\d+)\s*-->/);
+      if(waterMatch){
+        waterGlasses=parseInt(waterMatch[1])||0;
+        reply=reply.replace(/<!--\s*WATER_JSON\s*:\s*\d+\s*-->/g,'').trim();
+      }
+      // Also detect water from text if AI forgot the tag
+      if(!waterGlasses && foodDetected){
+        const waterTextMatch=text.match(/(\d+)\s*(?:glass|cup|glas)(?:es|s)?\s*(?:of\s*)?water/i);
+        if(waterTextMatch) waterGlasses=parseInt(waterTextMatch[1])||1;
+        else if(/\b(?:a\s+glass\s+of\s+water|glass\s+of\s+water|log\s+water|drank\s+water)\b/i.test(text)) waterGlasses=1;
+      }
 
       // Extract workout JSON
       let workoutData=null;
@@ -582,8 +602,11 @@ ${reply}`}]}],generationConfig:{temperature:0,maxOutputTokens:1024}})
         const meal=userMeal;
         const totalCal=foodItems.reduce((s,i)=>s+(i.cal||0),0);
 
-        // Write to diary state immediately
+        // REPLACE: Remove previous AI-logged items from this meal before adding new ones
         const dl=dayLog(NT.state.currentDate);
+        dl[meal]=dl[meal].filter(item=>item.foodId!=='ai_coach');
+
+        // Write new items
         foodItems.forEach(i=>{
           dl[meal].push({
             name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,
@@ -615,6 +638,14 @@ ${reply}`}]}],generationConfig:{temperature:0,maxOutputTokens:1024}})
           card.innerHTML=`<div style="color:var(--text2);padding:8px">↩ Removed from ${meal}</div>`;
           toast('Food entry undone','info');
         });
+      }
+
+      // ═══ AUTO-LOG WATER ═══
+      if(waterGlasses>0){
+        const dl=dayLog(NT.state.currentDate);
+        dl.water=(dl.water||0)+waterGlasses;
+        saveAll();updateDiary();
+        toast(`💧 ${waterGlasses} glass${waterGlasses>1?'es':''} of water logged (${dl.water} total)`,'success');
       }
     }catch(e){
       hideTyping();
