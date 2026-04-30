@@ -433,7 +433,16 @@ Use the exact exercise name from the templates above.`;
 
     // /log command — explicit food logging trigger (works before or after food text)
     const hasLogCmd=/\/log\b/i.test(text);
-    if(hasLogCmd) text=text.replace(/\/log\b/gi,'').trim();
+    if(hasLogCmd){
+      text=text.replace(/\/log\b/gi,'').trim();
+      // If user just said "/log" or "/log this" with no real food text,
+      // pull context from the last AI response so the model knows what to log
+      if(!text || /^(this|it|that|these|above|prev|previous|last)$/i.test(text)){
+        const lastAi=chat.messages.filter(m=>m.role==='ai').pop();
+        if(lastAi) text='Log the food items discussed in this conversation. Here is the last response for reference:\n'+lastAi.text;
+        else text='The user wants to log food but no prior context found.';
+      }
+    }
 
     const foodDetected=hasLogCmd||isFoodLog(text);
     const workoutDetected=isWorkoutLog(text);
@@ -443,14 +452,18 @@ Use the exact exercise name from the templates above.`;
     const foodRule=foodDetected?`
 The user is LOGGING FOOD they ate. For this:
 - Break down into components in a markdown table with columns: Food | Serving | Cal | P(g) | C(g) | F(g). Include a TOTAL row.
-- Raw chicken breast = 120 cal/100g (NOT 165 — that's cooked). Assume raw unless stated.
-- Calories for the TOTAL stated portion, not per 100g.
-- This food WILL BE AUTO-LOGGED to their **${userMeal}** diary. Any previous AI-logged items in ${userMeal} will be REPLACED. Tell them it's been logged.
+- Use ACCURATE calorie values from USDA/IFCT databases. Common reference values:
+  * Chapati/Roti (medium, ~40g each): 120 cal. 126g chapati ≈ 3 chapatis ≈ 360 cal.
+  * Cooked white rice: 130 cal/100g. Raw chicken breast: 120 cal/100g (NOT 165 — that's cooked).
+  * Whole egg: 75 cal. Paratha: 200 cal each. Naan: 260 cal each.
+  * Cooked dal/lentils: 115 cal/100g. Milk (whole): 62 cal/100ml.
+- Calories MUST be for the TOTAL stated portion, not per 100g.
+- This food WILL BE AUTO-LOGGED to their **${userMeal}** diary. Tell them it's been logged.
 
 CRITICAL — YOU MUST DO THIS OR THE APP BREAKS:
 After your response, on the VERY LAST LINE, you MUST add this hidden HTML comment with the food data as JSON:
-<!--FOOD_JSON:[{"name":"Seeded Bread","cal":110,"protein":4.6,"carbs":11.5,"fat":5.1,"fiber":1,"sugar":0.5,"servingText":"1 slice"}]-->
-The JSON array MUST contain one object per food item. Numbers MUST match your table. DO NOT forget this line. Without it, NOTHING gets saved.
+<!--FOOD_JSON:[{"name":"Seeded Bread","cal":110,"protein":4.6,"carbs":11.5,"fat":5.1,"fiber":1,"sugar":0.5,"servingText":"1 slice (30g)"}]-->
+The JSON array MUST contain one object per food item. Numbers MUST match your table. Each item MUST include "servingText" with grams in parentheses like "(126g)". DO NOT forget this line. Without it, NOTHING gets saved.
 
 WATER LOGGING:
 If the user mentions drinking water (e.g. "a glass of water", "log water", "drank water"), ALSO add this on a separate line:
@@ -592,10 +605,13 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
 
         // Write new items
         foodItems.forEach(i=>{
+          let g=100;
+          const gm=(i.servingText||'').match(/(\d+\.?\d*)\s*g/i);
+          if(gm)g=parseFloat(gm[1]);
           dl[meal].push({
             name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,
             fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,
-            servingText:i.servingText||'1 serving',foodId:'ai_coach'
+            servingText:i.servingText||'1 serving',foodId:'ai_coach',grams:g
           });
         });
         saveAll();

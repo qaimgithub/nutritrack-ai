@@ -716,9 +716,13 @@ RULES:
 1. Return ONLY a valid JSON array. No markdown, no text, no code fences.
 2. Format: [{"name":"string","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"servingText":"string"}]
 3. Break down each component separately.
-4. IMPORTANT: Raw chicken breast = 120 cal/100g (NOT 165 — that is cooked). Use raw values when user specifies raw weight.
-5. cal = total calories for the ENTIRE stated portion.
-6. servingText = the portion as described.`;
+4. Use ACCURATE values from USDA/IFCT databases. Key references:
+   - Raw chicken breast: 120 cal/100g (NOT 165 — that's cooked). Cooked: 165 cal/100g.
+   - Chapati/Roti (medium ~40g): 120 cal each. Paratha: 200 cal each. Naan: 260 cal each.
+   - Cooked white rice: 130 cal/100g. Cooked dal/lentils: 115 cal/100g.
+   - Whole egg: 75 cal. Milk (whole): 62 cal/100ml.
+5. cal = total calories for the ENTIRE stated portion, not per 100g.
+6. servingText MUST include grams in parentheses, e.g. "2 chapatis (80g)" or "1 cup rice (200g)".`;
   const userMsg=isImage?'Analyze this food image and return nutrition JSON:':`Analyze and return JSON: "${input}"`;
   const imgData=isImage?input:null;
   try{
