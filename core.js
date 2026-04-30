@@ -273,25 +273,35 @@ function updateDiary(){
   const pacingRow=NT.$('#pacingRow');
   const pacingText=NT.$('#pacingText');
   const pacingIcon=NT.$('#pacingIcon');
+  const pacingDetail=NT.$('#pacingDetail');
   if(pacingRow&&NT.state.currentDate===todayStr()){
     const now=new Date();
     const hoursPassed=now.getHours()+now.getMinutes()/60;
     const dayFraction=Math.min(hoursPassed/16,1); // 16 waking hours (6am-10pm)
     const expectedCal=Math.round(NT.state.goals.cal*dayFraction);
     const diff=Math.round(t.cal-expectedCal);
-    pacingRow.style.display='flex';
+    const timeLabel=now.toLocaleTimeString('en',{hour:'numeric',minute:'2-digit',hour12:true});
+    pacingRow.style.display='';
     if(isOver){
       pacingRow.className='pacing-row over';
-      pacingIcon.textContent='⚠️';pacingText.textContent=Math.round(net-NT.state.goals.cal)+' cal over budget';
+      pacingIcon.textContent='⚠️';
+      pacingText.textContent=Math.round(net-NT.state.goals.cal)+' cal over your daily budget';
+      if(pacingDetail) pacingDetail.textContent=`You've hit ${Math.round(t.cal)} cal — your target is ${NT.state.goals.cal}`;
     } else if(diff>100){
       pacingRow.className='pacing-row behind';
-      pacingIcon.textContent='⏫';pacingText.textContent=diff+' cal ahead of pace';
+      pacingIcon.textContent='⏫';
+      pacingText.textContent=diff+' cal ahead of pace';
+      if(pacingDetail) pacingDetail.textContent=`Eaten ${Math.round(t.cal)} cal · expected ~${expectedCal} by ${timeLabel}`;
     } else if(diff<-100){
       pacingRow.className='pacing-row ahead';
-      pacingIcon.textContent='✅';pacingText.textContent=Math.abs(diff)+' cal under pace';
+      pacingIcon.textContent='✅';
+      pacingText.textContent=Math.abs(diff)+' cal under pace';
+      if(pacingDetail) pacingDetail.textContent=`Eaten ${Math.round(t.cal)} cal · expected ~${expectedCal} by ${timeLabel}. Room to eat more.`;
     } else {
-      pacingRow.className='pacing-row';
-      pacingIcon.textContent='⏱';pacingText.textContent='On pace';
+      pacingRow.className='pacing-row on-pace';
+      pacingIcon.textContent='⏱';
+      pacingText.textContent='On pace';
+      if(pacingDetail) pacingDetail.textContent=`Eaten ${Math.round(t.cal)} cal · expected ~${expectedCal} by ${timeLabel}`;
     }
   } else if(pacingRow){
     pacingRow.style.display='none';
@@ -430,21 +440,53 @@ function updateDiary(){
   if(timelineBar){
     timelineBar.innerHTML='';
     const mealTColors={breakfast:'#FFD60A',lunch:'#FF9F0A',dinner:'#5E5CE6',snacks:'#FF6482'};
+    const mealTLabels={breakfast:'B',lunch:'L',dinner:'D',snacks:'S'};
+    const mealTNames={breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snacks:'Snacks'};
     const mealTimes={breakfast:8,lunch:13,dinner:19,snacks:16}; // default hours
+    let hasMeals=false;
     ['breakfast','lunch','dinner','snacks'].forEach(meal=>{
       const items=log[meal]||[];
       if(items.length>0){
-        // Use logged time if available, otherwise default
+        hasMeals=true;
         const hr=items[0].time?parseInt(items[0].time.split(':')[0]):mealTimes[meal];
+        let mc=0; items.forEach(i=>mc+=i.cal);
         const pct=Math.max(0,Math.min(((hr-6)/18)*100,100)); // 6am=0%, 12am=100%
-        const dot=document.createElement('div');
-        dot.className='timeline-dot';
-        dot.style.left=`calc(${pct}% - 5px)`;
-        dot.style.background=mealTColors[meal];
-        dot.title=meal.charAt(0).toUpperCase()+meal.slice(1)+' ~'+hr+':00';
-        timelineBar.appendChild(dot);
+
+        // Pill-shaped block with label
+        const block=document.createElement('div');
+        block.className='timeline-block';
+        block.style.left=`${pct}%`;
+        block.style.setProperty('--meal-color',mealTColors[meal]);
+        block.innerHTML=`<span class="timeline-block-label">${mealTLabels[meal]}</span><span class="timeline-block-cal">${Math.round(mc)}</span>`;
+        block.title=`${mealTNames[meal]} ~${hr}:00 \u2022 ${Math.round(mc)} cal`;
+        timelineBar.appendChild(block);
       }
     });
+
+    // Show/hide the "no meals" state
+    const emptyMsg=NT.$('#timelineEmpty');
+    if(emptyMsg) emptyMsg.style.display=hasMeals?'none':'block';
+
+    // Position the "now" needle
+    const needle=NT.$('#timelineNow');
+    if(needle){
+      if(NT.state.currentDate===todayStr()){
+        const now=new Date();
+        const nowHr=now.getHours()+now.getMinutes()/60;
+        const nowPct=Math.max(0,Math.min(((nowHr-6)/18)*100,100));
+        needle.style.left=nowPct+'%';
+        needle.style.display='';
+      } else {
+        needle.style.display='none';
+      }
+    }
+  }
+
+  // Update timeline legend visibility
+  const tLegend=NT.$('#timelineLegend');
+  if(tLegend){
+    const anyMeals=['breakfast','lunch','dinner','snacks'].some(m=>(log[m]||[]).length>0);
+    tLegend.style.display=anyMeals?'flex':'none';
   }
 
   renderWater(log.water||0);

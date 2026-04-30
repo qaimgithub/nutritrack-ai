@@ -97,8 +97,11 @@
 
             <!-- Pacing indicator -->
             <div class="pacing-row" id="pacingRow">
-                <span class="pacing-icon" id="pacingIcon">⏱</span>
-                <span class="pacing-text" id="pacingText">On pace</span>
+                <div class="pacing-main">
+                    <span class="pacing-icon" id="pacingIcon">⏱</span>
+                    <span class="pacing-text" id="pacingText">On pace</span>
+                </div>
+                <div class="pacing-detail" id="pacingDetail"></div>
             </div>
 
             <!-- Calorie Split Ratio -->
@@ -149,9 +152,29 @@
 
             <!-- Meal Timing Timeline -->
             <div class="meal-timeline" id="mealTimeline">
+                <div class="timeline-header">
+                    <span class="timeline-title">Meal Timing</span>
+                </div>
                 <div class="timeline-track">
-                    <div class="timeline-labels"><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
-                    <div class="timeline-bar" id="timelineBar"></div>
+                    <div class="timeline-axis">
+                        <span class="timeline-tick" style="left:0%"><span class="tick-mark"></span><span class="tick-label">6a</span></span>
+                        <span class="timeline-tick" style="left:16.67%"><span class="tick-mark"></span><span class="tick-label">9a</span></span>
+                        <span class="timeline-tick" style="left:33.33%"><span class="tick-mark"></span><span class="tick-label">12p</span></span>
+                        <span class="timeline-tick" style="left:50%"><span class="tick-mark"></span><span class="tick-label">3p</span></span>
+                        <span class="timeline-tick" style="left:66.67%"><span class="tick-mark"></span><span class="tick-label">6p</span></span>
+                        <span class="timeline-tick" style="left:83.33%"><span class="tick-mark"></span><span class="tick-label">9p</span></span>
+                        <span class="timeline-tick" style="left:100%"><span class="tick-mark"></span><span class="tick-label">12a</span></span>
+                    </div>
+                    <div class="timeline-bar" id="timelineBar">
+                        <div class="timeline-now-needle" id="timelineNow"></div>
+                    </div>
+                    <p id="timelineEmpty" class="timeline-empty" style="display:none">No meals logged yet today</p>
+                </div>
+                <div class="timeline-legend" id="timelineLegend" style="display:none">
+                    <span class="tl-legend-item"><span class="tl-dot" style="background:#FFD60A"></span>Breakfast</span>
+                    <span class="tl-legend-item"><span class="tl-dot" style="background:#FF9F0A"></span>Lunch</span>
+                    <span class="tl-legend-item"><span class="tl-dot" style="background:#5E5CE6"></span>Dinner</span>
+                    <span class="tl-legend-item"><span class="tl-dot" style="background:#FF6482"></span>Snacks</span>
                 </div>
             </div>
 

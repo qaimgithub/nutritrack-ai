@@ -440,7 +440,7 @@ The user is LOGGING FOOD they ate. For this:
 - Break down into components in a markdown table with columns: Food | Serving | Cal | P(g) | C(g) | F(g). Include a TOTAL row.
 - Raw chicken breast = 120 cal/100g (NOT 165 — that's cooked). Assume raw unless stated.
 - Calories for the TOTAL stated portion, not per 100g.
-- The user wants this logged to: **${userMeal}**.
+- This food WILL BE AUTO-LOGGED to their **${userMeal}** diary. Tell them it's been logged. Do NOT say "would you like me to log it?" — it is automatic.
 - After your table, on a NEW line add EXACTLY this (hidden, parsed by app):
 <!--FOOD_JSON:[{"name":"item","cal":0,"protein":0,"carbs":0,"fat":0,"fiber":0,"sugar":0,"servingText":"portion"}]-->
 The JSON numbers MUST match your table. Be accurate.`:'';
@@ -488,17 +488,28 @@ ${hist}`;
       if(data.error){addMsg(`Error: ${data.error.message}`,'ai');return}
       let reply=data.candidates?.[0]?.content?.parts?.[0]?.text||'Could not process.';
 
-      // Extract food JSON
+      // Extract food JSON — try multiple patterns for robustness
       let foodItems=null;
-      const jm=reply.match(/<!--FOOD_JSON:(\[[\s\S]*?\])-->/);
-      if(jm){try{foodItems=JSON.parse(jm[1])}catch(e){console.warn('Food JSON parse fail:',e)}reply=reply.replace(/<!--FOOD_JSON:[\s\S]*?-->/,'').trim()}
+      const foodPatterns=[
+        /<!--\s*FOOD_JSON\s*:\s*(\[[\s\S]*?\])\s*-->/,
+        /<!--FOOD_JSON:(\[[\s\S]*?\])-->/,
+        /```json\s*(\[\s*\{[\s\S]*?\}\s*\])\s*```/
+      ];
+      for(const pat of foodPatterns){
+        const jm=reply.match(pat);
+        if(jm){
+          try{foodItems=JSON.parse(jm[1]);break}catch(e){console.warn('Food JSON parse fail:',e)}
+        }
+      }
+      // Clean all food JSON markers from the reply
+      reply=reply.replace(/<!--\s*FOOD_JSON\s*:\s*\[[\s\S]*?\]\s*-->/g,'').trim();
 
       // Extract workout JSON
       let workoutData=null;
-      const wm=reply.match(/<!--WORKOUT_JSON:(\{[\s\S]*?\})-->/);
+      const wm=reply.match(/<!--\s*WORKOUT_JSON\s*:\s*(\{[\s\S]*?\})\s*-->/);
       if(wm){
         try{workoutData=JSON.parse(wm[1])}catch(e){console.warn('Workout JSON parse fail:',e)}
-        reply=reply.replace(/<!--WORKOUT_JSON:[\s\S]*?-->/,'').trim();
+        reply=reply.replace(/<!--\s*WORKOUT_JSON\s*:[\s\S]*?-->/,'').trim();
         if(workoutData){
           const log=dayLog(NT.state.currentDate);
           log.workout=workoutData;
@@ -509,7 +520,7 @@ ${hist}`;
       }
 
       // Extract weight updates
-      const wuMatch=reply.match(/<!--WEIGHT_UPDATE:(\{[\s\S]*?\})-->/);
+      const wuMatch=reply.match(/<!--\s*WEIGHT_UPDATE\s*:\s*(\{[\s\S]*?\})\s*-->/);
       if(wuMatch){
         try{
           const wu=JSON.parse(wuMatch[1]);
@@ -525,7 +536,7 @@ ${hist}`;
           saveAll();
           toast(`Updated ${wu.exercise} to ${wu.weight}kg`,'success');
         }catch(e){console.warn('Weight update parse fail:',e)}
-        reply=reply.replace(/<!--WEIGHT_UPDATE:[\s\S]*?-->/,'').trim();
+        reply=reply.replace(/<!--\s*WEIGHT_UPDATE\s*:[\s\S]*?-->/,'').trim();
       }
 
       addMsg(reply,'ai');
@@ -536,28 +547,47 @@ ${hist}`;
       // Auto-read response aloud ONLY if user used voice input
       if(shouldSpeak)speakText(reply,chatMsgs.lastElementChild?.querySelector('.tts-btn'));
 
-      // Food logging card
+      // ═══ AUTO-LOG FOOD TO DIARY ═══
+      // Food is now logged IMMEDIATELY instead of requiring a separate button click.
+      // This fixes the disconnect where the AI says "logged" but nothing appears in the diary.
       if(foodItems&&foodItems.length>0){
         const meal=userMeal;
         const totalCal=foodItems.reduce((s,i)=>s+(i.cal||0),0);
+
+        // AUTO-LOG: Write to diary state immediately
+        const dl=dayLog(NT.state.currentDate);
+        foodItems.forEach(i=>{
+          dl[meal].push({
+            name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,
+            fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,
+            servingText:i.servingText||'1 serving',foodId:'ai_coach'
+          });
+        });
+        saveAll();
+        updateDiary();
+
+        // Show confirmation card with undo option
         const card=document.createElement('div');card.className='chat-msg ai';
-        card.innerHTML=`<div style="border:1px solid var(--accent);border-radius:12px;padding:12px;margin-top:4px">
-          <div style="font-weight:600;margin-bottom:8px;color:var(--accent)">📋 Log to Diary? (${meal})</div>
-          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">${foodItems.map(i=>`${i.name}: ${Math.round(i.cal)} cal`).join('<br>')}<br><strong>Total: ${Math.round(totalCal)} cal</strong></div>
-          <div style="display:flex;gap:8px">
-            <button class="log-yes" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--accent);color:#000;font-weight:600;cursor:pointer">✓ Log It</button>
-            <button class="log-no" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--surface,var(--card));color:var(--text2);cursor:pointer;border:1px solid var(--border)">✗ Skip</button>
+        card.innerHTML=`<div style="border:1px solid rgba(48,209,88,.3);border-radius:12px;padding:12px;margin-top:4px;background:rgba(48,209,88,.06)">
+          <div style="font-weight:600;margin-bottom:6px;color:#30D158;display:flex;align-items:center;gap:6px">
+            <span style="font-size:1.1rem">✅</span> Logged to ${meal.charAt(0).toUpperCase()+meal.slice(1)}
           </div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${foodItems.map(i=>`${i.name}: ${Math.round(i.cal)} cal`).join('<br>')}<br><strong style="color:var(--text)">Total: ${Math.round(totalCal)} cal</strong></div>
+          <button class="undo-log" style="padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text2);cursor:pointer;font-size:.75rem;font-family:var(--font)">↩ Undo</button>
         </div>`;
         chatMsgs.appendChild(card);chatMsgs.scrollTop=chatMsgs.scrollHeight;
-        card.querySelector('.log-yes').addEventListener('click',()=>{
-          const dl=dayLog(NT.state.currentDate);
-          foodItems.forEach(i=>{dl[meal].push({name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,servingText:i.servingText||'1 serving',foodId:'ai_coach'})});
+        toast(`${foodItems.length} item${foodItems.length>1?'s':''} logged to ${meal} (${Math.round(totalCal)} cal)`,'success');
+
+        // Undo handler
+        card.querySelector('.undo-log')?.addEventListener('click',()=>{
+          const dl2=dayLog(NT.state.currentDate);
+          // Remove the last N items we just added
+          const count=foodItems.length;
+          dl2[meal].splice(-count,count);
           saveAll();updateDiary();
-          card.innerHTML=`<div style="color:var(--accent);padding:8px">✓ Logged ${foodItems.length} item${foodItems.length>1?'s':''} to ${meal} (${Math.round(totalCal)} cal)</div>`;
-          toast(`Logged to ${meal}`,'success');
+          card.innerHTML=`<div style="color:var(--text2);padding:8px">↩ Removed from ${meal}</div>`;
+          toast('Food entry undone','info');
         });
-        card.querySelector('.log-no')?.addEventListener('click',()=>{card.innerHTML=`<div style="color:var(--text2);padding:8px">Skipped</div>`});
       }
     }catch(e){
       hideTyping();
