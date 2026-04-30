@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // ═══ AI NUTRITION INSIGHT ═══
   $('#generateNutritionInsight')?.addEventListener('click',async()=>{
-    if(!NT.state.geminiKey){toast('Set Gemini API key first','error');return}
+    if(!hasAiKey()){toast('Set a Groq or Gemini API key first','error');return}
     const panel=$('#nutritionInsight');
     panel.innerHTML='<div class="ai-dot-pulse"><span></span><span></span><span></span></div>';
 
@@ -206,31 +206,17 @@ document.addEventListener('DOMContentLoaded',()=>{
     const bf=$('#metricBf').textContent;
     const tdee=$('#metricTdee').textContent;
 
-    // Calculate actual weeks to deadline
     let weeksLeft='no deadline';
     if(g.targetDate){
       const msLeft=new Date(g.targetDate)-new Date();
       weeksLeft=Math.max(1,Math.round(msLeft/(7*86400000)))+' weeks';
     }
 
-    const prompt=`Sports nutrition expert. EXACTLY 5 numbered points, 1 sentence each. Bold key numbers. End with 1-line VERDICT.
-
-DATA: ${age}yr ${p.sex}, ${p.height}cm, ${latest?latest.weight+'kg':'?'}, BF ${bf||'?'}, TDEE ${tdee}cal.
-TRAINING: Gym ${t.gym}x/wk (${t.style}), Cardio ${t.cardio}x/wk.
-GOAL: ${g.targetWeight||'?'}kg, ${g.targetBf||'?'}%BF. Deadline: ${g.targetDate||'none'} (${weeksLeft} from now).
-CURRENT: ${goals.cal}cal, P${goals.protein}g, C${goals.carbs}g, F${goals.fat}g.
-
-IMPORTANT: The deadline is ${weeksLeft} away. Use this for point #4.
-Points: 1.Calorie target 2.Protein 3.Fat 4.Timeline (use ${weeksLeft}) 5.Key change.
-No intro. **bold** numbers.`;
+    const sp='Sports nutrition expert. EXACTLY 5 numbered points, 1 sentence each. Bold key numbers. End with 1-line VERDICT. No intro. **bold** numbers.';
+    const prompt=`DATA: ${age}yr ${p.sex}, ${p.height}cm, ${latest?latest.weight+'kg':'?'}, BF ${bf||'?'}, TDEE ${tdee}cal.\nTRAINING: Gym ${t.gym}x/wk (${t.style}), Cardio ${t.cardio}x/wk.\nGOAL: ${g.targetWeight||'?'}kg, ${g.targetBf||'?'}%BF. Deadline: ${g.targetDate||'none'} (${weeksLeft} from now).\nCURRENT: ${goals.cal}cal, P${goals.protein}g, C${goals.carbs}g, F${goals.fat}g.\n\nIMPORTANT: The deadline is ${weeksLeft} away. Use this for point #4.\nPoints: 1.Calorie target 2.Protein 3.Fat 4.Timeline (use ${weeksLeft}) 5.Key change.`;
 
     try{
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:4096}})
-      });
-      const data=await res.json();
-      const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'Could not generate insight.';
+      const text=await aiCall(sp,prompt,{temperature:0.3,maxTokens:4096});
       let html=text
         .split('\n')
         .filter(l=>l.trim())
@@ -346,7 +332,7 @@ No intro. **bold** numbers.`;
   async function generateGoalInsight(){
     const g=NT.state.bodyGoals;
     const latest=NT.state.bodyLogs.length?NT.state.bodyLogs[NT.state.bodyLogs.length-1]:null;
-    if(!latest||!g.targetWeight||!NT.state.geminiKey)return;
+    if(!latest||!g.targetWeight||!hasAiKey())return;
     const insight=$('#goalInsight');
     insight.classList.remove('hidden');
     insight.innerHTML='<div class="ai-dot-pulse"><span></span><span></span><span></span></div>';
@@ -358,14 +344,10 @@ No intro. **bold** numbers.`;
       const msLeft=new Date(g.targetDate)-new Date();
       weeksLeft=Math.max(1,Math.round(msLeft/(7*86400000)))+' weeks';
     }
-    const prompt=`Current: ${latest.weight}kg, BF ${bfText}. Target: ${g.targetWeight}kg, ${g.targetBf}%BF. Deadline: ${g.targetDate||'none'} (${weeksLeft} away). TDEE: ${tdeeText}cal. Training: gym ${t.gym}x/wk, cardio ${t.cardio}x/wk. Give 3 sentences: is this realistic in ${weeksLeft}? What calorie target? Rate of loss/gain needed? Be direct, use **bold** for numbers.`;
+    const sp='Sports nutrition advisor. Be direct, use **bold** for numbers. Max 3 sentences.';
+    const prompt=`Current: ${latest.weight}kg, BF ${bfText}. Target: ${g.targetWeight}kg, ${g.targetBf}%BF. Deadline: ${g.targetDate||'none'} (${weeksLeft} away). TDEE: ${tdeeText}cal. Training: gym ${t.gym}x/wk, cardio ${t.cardio}x/wk. Is this realistic in ${weeksLeft}? What calorie target? Rate of loss/gain needed?`;
     try{
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:1024}})
-      });
-      const data=await res.json();
-      const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'Could not generate insight.';
+      const text=await aiCall(sp,prompt,{temperature:0.3,maxTokens:1024});
       insight.innerHTML='✨ '+text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
     }catch(e){insight.innerHTML='Could not generate AI insight.'}
   }

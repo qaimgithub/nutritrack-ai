@@ -1,13 +1,14 @@
 // NutriTrack AI — Core Module
 const NT={
-  state:{currentDate:todayStr(),goals:load('nt_goals')||{cal:2000,protein:150,carbs:250,fat:65,fiber:30,sugar:50,water:8},logs:load('nt_logs')||{},geminiKey:load('nt_gemini')||'',weights:load('nt_weights')||{},exercises:load('nt_exercises')||{},chatHistory:load('nt_chat')||[],profile:load('nt_profile')||{dob:'',sex:'male',height:0,activity:1.55},bodyLogs:load('nt_bodyLogs')||[],bodyGoals:load('nt_bodyGoals')||{targetWeight:0,targetBf:0,targetDate:''},training:load('nt_training')||{gym:3,cardio:0,style:'strength'},coachChats:load('nt_coachChats')||[],activeChatId:load('nt_activeChatId')||null,workoutTemplates:load('nt_workoutTpl')||{push:[{name:'Bench Press',weight:30,reps:12,sets:3},{name:'Incline Bench Press',weight:20,reps:12,sets:3},{name:'Tricep Pushdown Cable',weight:20,reps:12,sets:3},{name:'Tricep Back Extension',weight:12,reps:12,sets:3},{name:'Lateral Cable Raise',weight:8,reps:12,sets:3},{name:'Overhead Press',weight:30,reps:12,sets:3}],pull:[{name:'Lat Pulldown',weight:36,reps:12,sets:3},{name:'Seated Cable Rows',weight:30,reps:12,sets:3},{name:'Barbell Row',weight:30,reps:8,sets:5},{name:'Face Pull',weight:36,reps:12,sets:3},{name:'Hammer Curl',weight:8,reps:12,sets:3},{name:'Bicep Curl Dumbbell',weight:8,reps:12,sets:3}],legs:[{name:'Romanian Deadlift',weight:30,reps:8,sets:3},{name:'Leg Press',weight:50,reps:12,sets:3},{name:'Leg Curl',weight:21,reps:12,sets:3},{name:'Standing Calf Raises',weight:48,reps:12,sets:3}],cardio:{type:'Treadmill Incline Walk',incline:9,speedMin:3,speedMax:5,durationMin:25,durationMax:40},sequence:['push','pull','legs']}},
+  state:{currentDate:todayStr(),goals:load('nt_goals')||{cal:2000,protein:150,carbs:250,fat:65,fiber:30,sugar:50,water:8},logs:load('nt_logs')||{},geminiKey:load('nt_gemini')||'',groqKey:load('nt_groq')||'',weights:load('nt_weights')||{},exercises:load('nt_exercises')||{},chatHistory:load('nt_chat')||[],profile:load('nt_profile')||{dob:'',sex:'male',height:0,activity:1.55},bodyLogs:load('nt_bodyLogs')||[],bodyGoals:load('nt_bodyGoals')||{targetWeight:0,targetBf:0,targetDate:''},training:load('nt_training')||{gym:3,cardio:0,style:'strength'},coachChats:load('nt_coachChats')||[],activeChatId:load('nt_activeChatId')||null,workoutTemplates:load('nt_workoutTpl')||{push:[{name:'Bench Press',weight:30,reps:12,sets:3},{name:'Incline Bench Press',weight:20,reps:12,sets:3},{name:'Tricep Pushdown Cable',weight:20,reps:12,sets:3},{name:'Tricep Back Extension',weight:12,reps:12,sets:3},{name:'Lateral Cable Raise',weight:8,reps:12,sets:3},{name:'Overhead Press',weight:30,reps:12,sets:3}],pull:[{name:'Lat Pulldown',weight:36,reps:12,sets:3},{name:'Seated Cable Rows',weight:30,reps:12,sets:3},{name:'Barbell Row',weight:30,reps:8,sets:5},{name:'Face Pull',weight:36,reps:12,sets:3},{name:'Hammer Curl',weight:8,reps:12,sets:3},{name:'Bicep Curl Dumbbell',weight:8,reps:12,sets:3}],legs:[{name:'Romanian Deadlift',weight:30,reps:8,sets:3},{name:'Leg Press',weight:50,reps:12,sets:3},{name:'Leg Curl',weight:21,reps:12,sets:3},{name:'Standing Calf Raises',weight:48,reps:12,sets:3}],cardio:{type:'Treadmill Incline Walk',incline:9,speedMin:3,speedMax:5,durationMin:25,durationMax:40},sequence:['push','pull','legs']}},
   $:s=>document.querySelector(s),
   $$:s=>document.querySelectorAll(s)
 };
 function todayStr(){return new Date().toISOString().slice(0,10)}
 function load(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
-function saveAll(){save('nt_goals',NT.state.goals);save('nt_logs',NT.state.logs);save('nt_gemini',NT.state.geminiKey);save('nt_weights',NT.state.weights);save('nt_exercises',NT.state.exercises);save('nt_chat',NT.state.chatHistory);save('nt_profile',NT.state.profile);save('nt_bodyLogs',NT.state.bodyLogs);save('nt_bodyGoals',NT.state.bodyGoals);save('nt_training',NT.state.training);save('nt_coachChats',NT.state.coachChats);save('nt_activeChatId',NT.state.activeChatId);save('nt_workoutTpl',NT.state.workoutTemplates)}
+function saveAll(){save('nt_goals',NT.state.goals);save('nt_logs',NT.state.logs);save('nt_gemini',NT.state.geminiKey);save('nt_groq',NT.state.groqKey);save('nt_weights',NT.state.weights);save('nt_exercises',NT.state.exercises);save('nt_chat',NT.state.chatHistory);save('nt_profile',NT.state.profile);save('nt_bodyLogs',NT.state.bodyLogs);save('nt_bodyGoals',NT.state.bodyGoals);save('nt_training',NT.state.training);save('nt_coachChats',NT.state.coachChats);save('nt_activeChatId',NT.state.activeChatId);save('nt_workoutTpl',NT.state.workoutTemplates)}
+function hasAiKey(){return !!(NT.state.groqKey||NT.state.geminiKey)}
 function dayLog(d){if(!NT.state.logs[d])NT.state.logs[d]={breakfast:[],lunch:[],dinner:[],snacks:[],water:0,workout:null};return NT.state.logs[d]}
 function findFood(id){return FOOD_DB.find(f=>f.id===id)}
 function shiftDate(ds,n){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)}
@@ -633,9 +634,68 @@ function parseNL(text){
   return items;
 }
 
+// ═══ UNIFIED AI CALL — Groq first, Gemini fallback ═══
+async function aiCall(systemPrompt, userContent, options={}){
+  const {temperature=0.1, maxTokens=2048, imageData=null, signal=null}=options;
+  const providers=[];
+  if(NT.state.groqKey)providers.push('groq');
+  if(NT.state.geminiKey)providers.push('gemini');
+  if(!providers.length)throw new Error('No AI key set. Add a Groq or Gemini key in Settings.');
+
+  for(const provider of providers){
+    try{
+      let text;
+      if(provider==='groq'){
+        const messages=[{role:'system',content:systemPrompt}];
+        if(imageData){
+          messages.push({role:'user',content:[{type:'text',text:userContent},{type:'image_url',image_url:{url:`data:${imageData.mime_type};base64,${imageData.data}`}}]});
+        } else {
+          messages.push({role:'user',content:userContent});
+        }
+        const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${NT.state.groqKey}`},
+          body:JSON.stringify({model:imageData?'meta-llama/llama-4-scout-17b-16e-instruct':'meta-llama/llama-4-scout-17b-16e-instruct',messages,temperature,max_completion_tokens:maxTokens}),
+          signal
+        });
+        if(!res.ok){
+          const errText=await res.text().catch(()=>'');
+          console.warn(`Groq ${res.status}:`,errText.slice(0,200));
+          if(providers.includes('gemini')&&provider==='groq')continue; // fallback
+          throw new Error(`Groq API ${res.status}`);
+        }
+        const data=await res.json();
+        text=data.choices?.[0]?.message?.content||'';
+      } else {
+        // Gemini
+        let parts;
+        if(imageData)parts=[{text:systemPrompt},{text:userContent},{inline_data:imageData}];
+        else parts=[{text:systemPrompt},{text:userContent}];
+        const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({contents:[{parts}],generationConfig:{temperature,maxOutputTokens:maxTokens}}),
+          signal
+        });
+        if(!res.ok){
+          const errText=await res.text().catch(()=>'');
+          throw new Error(`Gemini API ${res.status}: ${errText.slice(0,200)}`);
+        }
+        const data=await res.json();
+        text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+      }
+      return text.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    }catch(e){
+      if(e.name==='AbortError')throw e;
+      console.warn(`${provider} failed:`,e.message);
+      if(provider===providers[providers.length-1])throw e; // last provider, rethrow
+      // otherwise continue to next provider
+    }
+  }
+  throw new Error('All AI providers failed');
+}
+
 async function geminiAnalyze(input,isImage=false){
-  if(!NT.state.geminiKey)return null;
-  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`;
+  if(!hasAiKey())return null;
   const sp=`You are a nutrition analyzer for a calorie tracking app.
 
 RULES:
@@ -645,15 +705,10 @@ RULES:
 4. IMPORTANT: Raw chicken breast = 120 cal/100g (NOT 165 — that is cooked). Use raw values when user specifies raw weight.
 5. cal = total calories for the ENTIRE stated portion.
 6. servingText = the portion as described.`;
-  let parts;
-  if(isImage)parts=[{text:sp},{text:"Analyze this food image and return nutrition JSON:"},{inline_data:input}];
-  else parts=[{text:sp},{text:`Analyze and return JSON: "${input}"`}];
+  const userMsg=isImage?'Analyze this food image and return nutrition JSON:':`Analyze and return JSON: "${input}"`;
+  const imgData=isImage?input:null;
   try{
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts}],generationConfig:{temperature:0.1,maxOutputTokens:2048}})});
-    if(!res.ok)throw new Error(`API ${res.status}`);
-    const data=await res.json();
-    let text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    text=text.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    const text=await aiCall(sp,userMsg,{temperature:0.1,maxTokens:2048,imageData:imgData});
     return JSON.parse(text);
-  }catch(e){console.error('Gemini:',e);return null}
+  }catch(e){console.error('AI analyze:',e);return null}
 }

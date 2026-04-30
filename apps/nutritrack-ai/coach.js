@@ -418,7 +418,7 @@ Use the exact exercise name from the templates above.`;
     const shouldSpeak=usedVoiceInput;
     usedVoiceInput=false; // reset after capturing
 
-    if(!NT.state.geminiKey){addMsg("Please set your Gemini API key in the More tab.",'ai');return}
+    if(!hasAiKey()){addMsg("Please set your Groq or Gemini API key in the More tab.",'ai');return}
     showTyping();
 
     const log=dayLog(NT.state.currentDate);
@@ -483,24 +483,17 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
 
     try{
       currentAbort=new AbortController();
-      // Build parts: system prompt + text + optional image
-      const parts=[{text:sp},{text:text}];
+      // Build image data if staged
+      let imgData=null;
       if(stagedImage){
-        parts.push({inline_data:{mime_type:stagedImage.mimeType,data:stagedImage.base64}});
+        imgData={mime_type:stagedImage.mimeType,data:stagedImage.base64};
       }
-      const sentImage=stagedImage; // capture before clearing
+      const sentImage=stagedImage;
       clearStagedImage();
 
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({contents:[{parts}],generationConfig:{temperature:0.3,maxOutputTokens:4096}}),
-        signal:currentAbort.signal
-      });
+      const reply_raw=await aiCall(sp,text,{temperature:0.3,maxTokens:4096,imageData:imgData,signal:currentAbort.signal});
       hideTyping();
-      if(!res.ok){const errBody=await res.text();addMsg(`API error ${res.status}: ${errBody.slice(0,200)}`,'ai');return}
-      const data=await res.json();
-      if(data.error){addMsg(`Error: ${data.error.message}`,'ai');return}
-      let reply=data.candidates?.[0]?.content?.parts?.[0]?.text||'Could not process.';
+      let reply=reply_raw;
 
       // Extract food JSON — try multiple patterns for robustness
       let foodItems=null;
@@ -579,21 +572,12 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
       if(foodDetected&&!foodItems){
         console.warn('Food detected but no JSON in response — running fallback extraction');
         try{
-          const extractRes=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`,{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({contents:[{parts:[{text:`Extract ALL food items from this nutrition response and return ONLY a JSON array. No markdown, no text, no explanation — just the raw JSON array.
-
-Format: [{"name":"Food Name","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"servingText":"portion description"}]
-
-Response to extract from:
-${reply}`}]}],generationConfig:{temperature:0,maxOutputTokens:1024}})
-          });
-          if(extractRes.ok){
-            const extractData=await extractRes.json();
-            let extractText=extractData.candidates?.[0]?.content?.parts?.[0]?.text||'';
-            extractText=extractText.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
-            try{foodItems=JSON.parse(extractText);console.log('Fallback extraction succeeded:',foodItems)}catch(e){console.warn('Fallback JSON parse fail:',e)}
-          }
+          const extractText=await aiCall(
+            'Extract ALL food items from the text below and return ONLY a JSON array.',
+            `Format: [{"name":"Food Name","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sugar":number,"servingText":"portion description"}]\n\nResponse to extract from:\n${reply}`,
+            {temperature:0,maxTokens:1024}
+          );
+          try{foodItems=JSON.parse(extractText);console.log('Fallback extraction succeeded:',foodItems)}catch(e){console.warn('Fallback JSON parse fail:',e)}
         }catch(e){console.warn('Fallback extraction error:',e)}
       }
 

@@ -425,7 +425,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // AI Weekly Summary
   NT.$('#generateSummaryBtn').addEventListener('click',async()=>{
-    if(!NT.state.geminiKey){toast('Set Gemini key first','error');return}
+    if(!hasAiKey()){toast('Set a Groq or Gemini key first','error');return}
     NT.$('#aiWeeklySummary').innerHTML='<div class="ai-dot-pulse"><span></span><span></span><span></span></div>';
     const today=todayStr();let weekData='';
     for(let i=6;i>=0;i--){
@@ -433,12 +433,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(l)['breakfast','lunch','dinner','snacks'].forEach(m=>(l[m]||[]).forEach(item=>{t.cal+=item.cal;t.p+=item.protein;t.c+=item.carbs;t.f+=item.fat}));
       weekData+=`${d}: ${Math.round(t.cal)}cal, P${Math.round(t.p)}g, C${Math.round(t.c)}g, F${Math.round(t.f)}g\n`;
     }
-    const sp=`Analyze this week of nutrition data. Goals: ${NT.state.goals.cal}cal, ${NT.state.goals.protein}g protein, ${NT.state.goals.carbs}g carbs, ${NT.state.goals.fat}g fat. Brief actionable summary. Use **bold**. Max 200 words.\n\n${weekData}`;
+    const sp=`Analyze this week of nutrition data. Goals: ${NT.state.goals.cal}cal, ${NT.state.goals.protein}g protein, ${NT.state.goals.carbs}g carbs, ${NT.state.goals.fat}g fat. Brief actionable summary. Use **bold**. Max 200 words.`;
     try{
-      const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${NT.state.geminiKey}`;
-      const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:sp}]}],generationConfig:{temperature:0.5,maxOutputTokens:1024}})});
-      const data=await res.json();
-      const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'Could not generate summary.';
+      const text=await aiCall(sp,weekData,{temperature:0.5,maxTokens:1024});
       NT.$('#aiWeeklySummary').innerHTML=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
     }catch{NT.$('#aiWeeklySummary').innerHTML='<p>Error generating summary</p>'}
   });
@@ -446,6 +443,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   // ═══ SETTINGS (More tab — simplified, goals in Body tab) ═══
   function loadSettings(){
     NT.$('#geminiKey').value=NT.state.geminiKey||'';
+    const groqEl=NT.$('#groqKey');if(groqEl)groqEl.value=NT.state.groqKey||'';
     // Populate snapshot card
     const log=dayLog(NT.state.currentDate);
     let cal=0,pro=0;
@@ -472,6 +470,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   NT.$('#saveAllSettings').addEventListener('click',()=>{
     NT.state.geminiKey=NT.$('#geminiKey').value.trim();
+    const groqEl=NT.$('#groqKey');if(groqEl)NT.state.groqKey=groqEl.value.trim();
     saveAll();toast('Settings saved','success');
   });
 
