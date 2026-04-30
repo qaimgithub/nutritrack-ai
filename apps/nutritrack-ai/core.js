@@ -669,7 +669,7 @@ async function aiCall(systemPrompt, userContent, options={}){
         const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${NT.state.groqKey}`},
-          body:JSON.stringify({model:imageData?'meta-llama/llama-4-scout-17b-16e-instruct':'meta-llama/llama-4-scout-17b-16e-instruct',messages,temperature,max_completion_tokens:maxTokens}),
+          body:JSON.stringify({model:imageData?'meta-llama/llama-4-scout-17b-16e-instruct':'qwen/qwen3-32b',messages,temperature,max_completion_tokens:maxTokens}),
           signal
         });
         if(!res.ok){
