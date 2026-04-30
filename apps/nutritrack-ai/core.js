@@ -483,12 +483,98 @@ function renderItems(meal,items){
     const fi=Math.round(item.fiber||0),su=Math.round(item.sugar||0);
     const extraMacros=(fi?`<span class="fi">Fi${fi}g</span>`:'')+
                       (su?`<span class="s">S${su}g</span>`:'');
-    div.innerHTML=`<div class="food-item-info"><div class="food-item-name">${esc(item.name)}</div><div class="food-item-serving">${esc(item.servingText||'')}</div><div class="food-item-macros"><span class="p">P${Math.round(item.protein)}g</span><span class="c">C${Math.round(item.carbs)}g</span><span class="f">F${Math.round(item.fat)}g</span>${extraMacros}</div></div><div class="food-item-cal">${Math.round(item.cal)}</div><button class="food-item-delete" aria-label="Remove"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg></button>`;
+    div.innerHTML=`<div class="food-item-info" style="cursor:pointer"><div class="food-item-name">${esc(item.name)}</div><div class="food-item-serving">${esc(item.servingText||'')}</div><div class="food-item-macros"><span class="p">P${Math.round(item.protein)}g</span><span class="c">C${Math.round(item.carbs)}g</span><span class="f">F${Math.round(item.fat)}g</span>${extraMacros}</div></div><div class="food-item-cal">${Math.round(item.cal)}</div><button class="food-item-delete" aria-label="Remove"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg></button>`;
     div.querySelector('.food-item-delete').addEventListener('click',(e)=>{e.stopPropagation();dayLog(NT.state.currentDate)[meal].splice(idx,1);saveAll();updateDiary();toast('Removed','info')});
+    div.querySelector('.food-item-info').addEventListener('click',()=>openEditModal(meal,idx,item));
     c.appendChild(div);
   });
 }
 
+// ═══ EDIT FOOD ENTRY MODAL ═══
+let editCtx=null; // {meal, idx, item, per100}
+
+function openEditModal(meal,idx,item){
+  const modal=NT.$('#editFoodModal');if(!modal)return;
+
+  // Calculate per-100g base values for proportional scaling
+  // If item came from DB and we know the food, use DB values; otherwise derive from current entry
+  const food=item.foodId&&item.foodId!=='ai'&&item.foodId!=='ai_photo'?findFood(item.foodId):null;
+  let per100;
+  if(food){
+    per100={cal:food.cal,protein:food.protein,carbs:food.carbs,fat:food.fat,fiber:food.fiber,sugar:food.sugar};
+  } else {
+    // Derive from current values — need a reference grams to back-calculate
+    const g=item.grams||100; // fallback to 100g if unknown
+    const m=g/100;
+    per100={cal:item.cal/m,protein:item.protein/m,carbs:item.carbs/m,fat:item.fat/m,fiber:(item.fiber||0)/m,sugar:(item.sugar||0)/m};
+  }
+
+  const currentGrams=item.grams||(() => {
+    // Try to extract grams from servingText like "1 Large (50g)"
+    const gMatch=(item.servingText||'').match(/\((\d+\.?\d*)g\)/);
+    if(gMatch)return parseFloat(gMatch[1]);
+    // Fallback: reverse-calculate from cal
+    return per100.cal>0?item.cal/per100.cal*100:100;
+  })();
+
+  editCtx={meal,idx,item,per100,originalGrams:currentGrams};
+
+  NT.$('#editFoodName').textContent=item.name;
+  NT.$('#editGramsInput').value=Math.round(currentGrams);
+  NT.$('#editMealSelect').value=meal;
+  updateEditPreview();
+  modal.classList.remove('hidden');
+}
+
+function updateEditPreview(){
+  if(!editCtx)return;
+  const g=parseFloat(NT.$('#editGramsInput').value)||0;
+  const m=g/100;
+  const p=editCtx.per100;
+  NT.$('#editPreviewCal').textContent=Math.round(p.cal*m);
+  NT.$('#editPreviewProtein').textContent=Math.round(p.protein*m)+'g';
+  NT.$('#editPreviewCarbs').textContent=Math.round(p.carbs*m)+'g';
+  NT.$('#editPreviewFat').textContent=Math.round(p.fat*m)+'g';
+  NT.$('#editPreviewFiber').textContent=Math.round(p.fiber*m)+'g';
+  NT.$('#editPreviewSugar').textContent=Math.round(p.sugar*m)+'g';
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const modal=NT.$('#editFoodModal');if(!modal)return;
+
+  NT.$('#editGramsInput').addEventListener('input',updateEditPreview);
+  NT.$('#editFoodClose').addEventListener('click',()=>modal.classList.add('hidden'));
+
+  NT.$('#editFoodSave').addEventListener('click',()=>{
+    if(!editCtx)return;
+    const g=parseFloat(NT.$('#editGramsInput').value)||0;
+    if(g<=0){toast('Enter a valid weight','error');return}
+    const m=g/100, p=editCtx.per100;
+    const newMeal=NT.$('#editMealSelect').value;
+    const log=dayLog(NT.state.currentDate);
+
+    // Build updated entry
+    const updated={
+      ...editCtx.item,
+      cal:p.cal*m, protein:p.protein*m, carbs:p.carbs*m,
+      fat:p.fat*m, fiber:p.fiber*m, sugar:p.sugar*m,
+      grams:g, servingText:`${Math.round(g)}g`
+    };
+
+    // If meal changed, remove from old and add to new
+    if(newMeal!==editCtx.meal){
+      log[editCtx.meal].splice(editCtx.idx,1);
+      log[newMeal].push(updated);
+    } else {
+      log[editCtx.meal][editCtx.idx]=updated;
+    }
+
+    saveAll();updateDiary();
+    modal.classList.add('hidden');
+    toast('Updated '+updated.name,'success');
+    editCtx=null;
+  });
+});
 
 
 function renderExercise(){

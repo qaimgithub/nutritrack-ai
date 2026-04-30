@@ -701,6 +701,36 @@
         </div>
 
 
+        <!-- ═══ EDIT FOOD MODAL ═══ -->
+        <div id="editFoodModal" class="modal hidden">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Edit Entry</h2>
+                    <button class="modal-close" id="editFoodClose"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                </div>
+                <div class="modal-body">
+                    <div class="food-selected-name" id="editFoodName"></div>
+                    <div class="setting-row"><label>Weight (grams)</label><input type="number" id="editGramsInput" min="1" step="1" placeholder="100"></div>
+                    <div class="nutrition-preview">
+                        <div class="preview-row"><span>Calories</span><span id="editPreviewCal" class="cal-val">0</span></div>
+                        <div class="preview-row"><span>Protein</span><span id="editPreviewProtein" class="protein-val">0g</span></div>
+                        <div class="preview-row"><span>Carbs</span><span id="editPreviewCarbs" class="carbs-val">0g</span></div>
+                        <div class="preview-row"><span>Fat</span><span id="editPreviewFat" class="fat-val">0g</span></div>
+                        <div class="preview-row"><span>Fiber</span><span id="editPreviewFiber">0g</span></div>
+                        <div class="preview-row"><span>Sugar</span><span id="editPreviewSugar">0g</span></div>
+                    </div>
+                    <div class="setting-row"><label>Meal</label>
+                        <select id="editMealSelect">
+                            <option value="breakfast">Breakfast</option><option value="lunch">Lunch</option>
+                            <option value="dinner">Dinner</option><option value="snacks">Snacks</option>
+                        </select>
+                    </div>
+                    <button id="editFoodSave" class="primary-btn full-w">Save Changes</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══ TOASTS ═══ -->
         <div id="toastContainer" class="toast-container"></div>
     </div>
