@@ -1,5 +1,5 @@
 // NutriTrack AI — Service Worker (offline caching)
-const CACHE='nutritrack-v23';
+const CACHE='nutritrack-v24';
 const ASSETS=['./index.html','./style.css','./core.js','./features.js','./coach.js','./body.js','./food-db.js'];
 
 self.addEventListener('install',e=>{

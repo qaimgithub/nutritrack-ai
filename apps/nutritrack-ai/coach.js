@@ -497,6 +497,35 @@ If the user mentions drinking water (e.g. "a glass of water", "log water", "dran
 <!--WATER_JSON:1-->
 The number is how many glasses. This is IN ADDITION to the FOOD_JSON line if there is food too.`:'';
 
+    // ═══ INJECT LOCAL DB VALUES INTO PROMPT ═══
+    // Scan user message for known foods and inject exact values so the AI doesn't guess
+    let dbHints='';
+    if(typeof FOOD_DB!=='undefined' && typeof FOOD_ALIASES!=='undefined'){
+      const words=text.toLowerCase();
+      const matched=new Set();
+      // Check aliases
+      for(const [alias,id] of Object.entries(FOOD_ALIASES)){
+        if(words.includes(alias)){
+          matched.add(id);
+        }
+      }
+      // Check direct name matches
+      for(const food of FOOD_DB){
+        if(words.includes(food.name.toLowerCase().split('(')[0].trim())){
+          matched.add(food.id);
+        }
+      }
+      if(matched.size>0){
+        const hints=[];
+        for(const id of matched){
+          const food=FOOD_DB.find(f=>f.id===id);
+          if(!food)continue;
+          const servingInfo=food.servings.filter(s=>s.name!=='g').map(s=>`1 ${s.name} (${s.g}g) = ${Math.round(food.cal*s.g/100)} cal`).join(', ');
+          hints.push(`• ${food.name}: ${food.cal} cal/100g. ${servingInfo}`);
+        }
+        dbHints=`\nVERIFIED REFERENCE VALUES (from our database — use these EXACT numbers, do NOT override):\n${hints.join('\n')}\n`;
+      }
+    }
 
     const sp=`You are NutriTrack AI Coach — a friendly, knowledgeable nutrition expert who knows this user personally. Talk like a real person, not a robot.
 
@@ -505,6 +534,7 @@ ${bodyCtx}
 ${dailyCtx}
 ${workoutCtx}
 ${pastCtx}
+${dbHints}
 
 HOW TO RESPOND:
 - Talk naturally, like a helpful friend who happens to be a nutritionist. Use conversational language.
