@@ -327,30 +327,8 @@ function updateDiary(){
   NT.$('#sugarVal').textContent=Math.round(t.sugar);NT.$('#sugarGoal').textContent=NT.state.goals.sugar||50;
 
   // ═══ REMAINING GRAMS ═══
-  const remMacros=[
-    {id:'#proteinRemaining',val:t.protein,goal:NT.state.goals.protein},
-    {id:'#carbsRemaining',val:t.carbs,goal:NT.state.goals.carbs},
-    {id:'#fatRemaining',val:t.fat,goal:NT.state.goals.fat},
-    {id:'#fiberRemaining',val:t.fiber,goal:NT.state.goals.fiber||30},
-    {id:'#sugarRemaining',val:t.sugar,goal:NT.state.goals.sugar||50}
-  ];
-  remMacros.forEach(({id,val,goal})=>{
-    const el=NT.$(id);if(!el)return;
-    const left=Math.round(goal-val);
-    el.textContent=left>0?left+'g left':Math.abs(left)+'g over';
-    el.style.color=left<0?'var(--danger)':'';
-  });
-
-  // ═══ CALORIE CONTRIBUTION LABELS ═══
-  const contribs=[
-    {id:'#proteinCalContrib',cal:pCal,pct:totalMacroCal?pCal/totalMacroCal*100:0},
-    {id:'#carbsCalContrib',cal:cCal,pct:totalMacroCal?cCal/totalMacroCal*100:0},
-    {id:'#fatCalContrib',cal:fCal,pct:totalMacroCal?fCal/totalMacroCal*100:0}
-  ];
-  contribs.forEach(({id,cal,pct})=>{
-    const el=NT.$(id);if(!el)return;
-    el.textContent=cal>0?Math.round(cal)+' cal ('+Math.round(pct)+'%)':'';
-  });
+  // (Cleaned: removed per-macro 'Xg left' and 'cal contribution' labels for cleaner UI)
+  // The P/C/F ratio bar above and X/Yg values already convey this info
 
   // Protein per kg bodyweight
   const latestBW=NT.state.bodyLogs.length?NT.state.bodyLogs[NT.state.bodyLogs.length-1].weight:Object.values(NT.state.weights).pop()||0;

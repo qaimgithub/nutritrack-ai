@@ -125,24 +125,21 @@ textarea{font-family:var(--font);font-size:.85rem;color:var(--text);background:r
 .ratio-labels{display:flex;justify-content:space-between;padding:0 16px 10px;font-size:.6rem;font-weight:600;font-family:var(--mono)}
 
 /* Macro Bars */
-.macro-bars{padding:0 16px;display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
-.macro-bar-item{display:flex;flex-direction:column;gap:4px}
+.macro-bars{padding:0 16px;display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+.macro-bar-item{display:flex;flex-direction:column;gap:3px}
 .macro-bar-header{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:500}
 .macro-bar-header span:last-child{margin-left:auto;font-family:var(--mono);font-size:.72rem}
 .macro-dot{width:8px;height:8px;border-radius:50%}
 .protein-dot{background:var(--protein)} .carbs-dot{background:var(--carbs)} .fat-dot{background:var(--fat)}
-.bar-track{height:6px;background:rgba(255,255,255,.04);border-radius:3px;overflow:hidden;position:relative}
+.bar-track{height:5px;background:rgba(255,255,255,.04);border-radius:3px;overflow:hidden;position:relative}
 .bar-fill{height:100%;border-radius:3px;transition:width .8s var(--ease);width:0}
 .bar-fill.over{box-shadow:0 0 8px currentColor;animation:barPulse 2s ease infinite}
 @keyframes barPulse{0%,100%{opacity:1}50%{opacity:.7}}
 .protein-bar{background:var(--protein)} .carbs-bar{background:var(--carbs)} .fat-bar{background:var(--fat)}
 .fiber-bar{background:#30D158} .sugar-bar{background:#FF9F0A}
-.protein-dot{background:var(--protein)} .carbs-dot{background:var(--carbs)} .fat-dot{background:var(--fat)}
 .fiber-dot{background:#30D158} .sugar-dot{background:#FF9F0A}
-.macro-divider{height:1px;background:var(--border);margin:4px 0}
+.macro-divider{height:1px;background:var(--border);margin:2px 0}
 .protein-pkg-badge{font-size:.6rem;font-family:var(--mono);font-weight:600;color:var(--text2);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:8px;margin-left:4px}
-.macro-remaining{font-size:.6rem;font-family:var(--mono);font-weight:500;color:var(--muted);margin-left:auto;margin-right:6px}
-.macro-cal-contrib{font-size:.6rem;font-family:var(--mono);color:var(--muted);padding-left:14px;margin-top:-2px}
 
 /* Nutrient Insights */
 .nutrient-insights{display:flex;align-items:center;padding:0 16px 12px;gap:10px}
