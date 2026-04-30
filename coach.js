@@ -430,7 +430,12 @@ Use the exact exercise name from the templates above.`;
     const pastCtx=buildPastConversationContext();
     const workoutCtx=buildWorkoutContext();
     const hist=chat.messages.slice(-8).map(m=>`${m.role}: ${m.text}`).join('\n');
-    const foodDetected=isFoodLog(text);
+
+    // /log command — explicit food logging trigger (works before or after food text)
+    const hasLogCmd=/\/log\b/i.test(text);
+    if(hasLogCmd) text=text.replace(/\/log\b/gi,'').trim();
+
+    const foodDetected=hasLogCmd||isFoodLog(text);
     const workoutDetected=isWorkoutLog(text);
     const detectedWorkoutType=detectWorkoutType(text);
     const userMeal=detectMeal(text);
