@@ -436,18 +436,18 @@ textarea{font-family:var(--font);font-size:.85rem;color:var(--text);background:r
 
 /* Modals */
 .modal{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;justify-content:center}
-.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(12px)}
-.modal-content{position:relative;width:100%;max-width:480px;max-height:85vh;background:#0A0A0C;border-radius:20px 20px 0 0;overflow-y:auto;animation:slideUp .3s var(--ease)}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.modal-content{position:relative;width:100%;max-width:480px;max-height:calc(90vh - env(safe-area-inset-top,0));background:#0A0A0C;border-radius:20px 20px 0 0;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:slideUp .3s var(--ease);padding-bottom:env(safe-area-inset-bottom,0)}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.modal-header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#0A0A0C;z-index:1}
 .modal-header h2{font-size:1rem;font-weight:700}
-.modal-close{background:0;border:0;color:var(--text2);cursor:pointer;padding:4px;border-radius:8px;display:flex}
-.modal-close:hover{color:var(--text)}
+.modal-close{background:0;border:0;color:var(--text2);cursor:pointer;padding:8px;border-radius:10px;display:flex;min-width:44px;min-height:44px;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.modal-close:hover,.modal-close:active{color:var(--text);background:rgba(255,255,255,.08)}
 .modal-body{padding:16px}
 .food-modal-search{margin-bottom:12px}
-#foodSearchInput{width:100%;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-family:var(--font);font-size:.85rem;outline:0}
+#foodSearchInput{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-family:var(--font);font-size:.85rem;outline:0}
 #foodSearchInput:focus{border-color:rgba(var(--accent-rgb),.4)}
-.food-search-results{max-height:200px;overflow-y:auto;margin-top:6px;border-radius:8px}
+.food-search-results{max-height:240px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:6px;border-radius:8px}
 .food-selected-name{font-size:1rem;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
 .serving-row{display:grid;grid-template-columns:1fr 1.5fr;gap:10px;margin-bottom:14px}
 .nutrition-preview{background:rgba(0,0,0,.15);border-radius:10px;padding:10px 14px;margin-bottom:14px}
@@ -455,9 +455,10 @@ textarea{font-family:var(--font);font-size:.85rem;color:var(--text);background:r
 .preview-row:last-child{border-bottom:0}
 .preview-row span:last-child{font-weight:700;font-family:var(--mono)}
 .cal-val{color:var(--accent)} .protein-val{color:var(--protein)} .carbs-val{color:var(--carbs)} .fat-val{color:var(--fat)}
+.search-no-results{padding:14px;color:var(--text2);font-size:.82rem;text-align:center;line-height:1.5}
 
 /* Toast */
-.toast-container{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;gap:6px}
+.toast-container{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0));left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;gap:6px}
 .toast{padding:10px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:.82rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.5);animation:toastIn .3s var(--ease);white-space:nowrap}
 .toast.success{border-left:3px solid var(--accent)} .toast.error{border-left:3px solid var(--danger)} .toast.info{border-left:3px solid var(--protein)}
 @keyframes toastIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
