@@ -45,11 +45,32 @@ document.addEventListener('DOMContentLoaded',()=>{
   const ms=NT.$('#mealSelect');
   if(h<11)ms.value='breakfast';else if(h<15)ms.value='lunch';else if(h<20)ms.value='dinner';else ms.value='snacks';
 
+  // USDA FoodData Central API — 300K+ foods fallback
+  const USDA_KEY='DEMO_KEY';
+  async function searchUSDA(query){
+    try{
+      const res=await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=8&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS)&api_key=${USDA_KEY}`);
+      if(!res.ok)return[];
+      const data=await res.json();
+      return(data.foods||[]).map(f=>{
+        const get=(id)=>{const n=f.foodNutrients?.find(n=>n.nutrientId===id);return n?n.value:0};
+        const servingG=f.servingSize||100;
+        const servingName=f.householdServingFullText||'serving';
+        return{
+          id:'usda_'+f.fdcId,name:f.description.split(',').slice(0,3).join(','),
+          cal:get(1008),protein:get(1003),carbs:get(1005),fat:get(1004),fiber:get(1079),sugar:get(2000),
+          servings:[{name:servingName,g:servingG},{name:'g',g:1}],
+          _usda:true
+        };
+      }).filter(f=>f.cal>0);
+    }catch{return[]}
+  }
+
   // Quick Add
-  let sTimeout;
+  let sTimeout,usdaTimeout;
   const qi=NT.$('#quickAddInput'),sr=NT.$('#searchResults');
   qi.addEventListener('input',()=>{
-    clearTimeout(sTimeout);const v=qi.value.trim();
+    clearTimeout(sTimeout);clearTimeout(usdaTimeout);const v=qi.value.trim();
     if(v.length<2){sr.classList.add('hidden');return}
     sTimeout=setTimeout(()=>{
       const m=FOOD_DB.filter(f=>f.name.toLowerCase().includes(v.toLowerCase())).slice(0,8);
@@ -57,7 +78,24 @@ document.addEventListener('DOMContentLoaded',()=>{
         sr.innerHTML=m.map(f=>`<div class="search-item" data-id="${f.id}"><div><div class="search-item-name">${esc(f.name)}</div><div class="search-item-serving">${f.servings[0].name} (${f.servings[0].g}g)</div></div><div class="search-item-cal">${Math.round(f.cal*f.servings[0].g/100)} kcal</div></div>`).join('');
         sr.classList.remove('hidden');
         sr.querySelectorAll('.search-item').forEach(el=>{el.addEventListener('click',()=>{openFoodModal(el.dataset.id,ms.value);sr.classList.add('hidden');qi.value=''})});
-      }else sr.classList.add('hidden');
+      }else{
+        sr.innerHTML=`<div class="search-no-results"><span style="color:var(--text2)">"${esc(v)}" not in local DB</span><br><small style="color:var(--accent)">Searching USDA database...</small></div>`;
+        sr.classList.remove('hidden');
+        // Fallback: search USDA
+        if(v.length>=3){
+          usdaTimeout=setTimeout(async()=>{
+            const usdaResults=await searchUSDA(v);
+            if(usdaResults.length){
+              // Temporarily add USDA results to FOOD_DB so openFoodModal works
+              usdaResults.forEach(f=>{if(!FOOD_DB.find(x=>x.id===f.id))FOOD_DB.push(f)});
+              sr.innerHTML=usdaResults.map(f=>`<div class="search-item" data-id="${f.id}"><div><div class="search-item-name">🌐 ${esc(f.name)}</div><div class="search-item-serving">${f.servings[0].name} (${f.servings[0].g}g)</div></div><div class="search-item-cal">${Math.round(f.cal*f.servings[0].g/100)} kcal</div></div>`).join('');
+              sr.querySelectorAll('.search-item').forEach(el=>{el.addEventListener('click',()=>{openFoodModal(el.dataset.id,ms.value);sr.classList.add('hidden');qi.value=''})});
+            }else{
+              sr.innerHTML=`<div class="search-no-results"><span style="color:var(--text2)">No results for "${esc(v)}"</span><br><small style="color:var(--accent)">Press Enter to ask AI, or use AI Coach tab</small></div>`;
+            }
+          },300);
+        }
+      }
     },200);
   });
 
@@ -151,13 +189,36 @@ document.addEventListener('DOMContentLoaded',()=>{
     saveAll();updateDiary();NT.$('#foodModal').classList.add('hidden');toast(`${selectedFood.name} added`,'success');
   });
   NT.$('#closeFoodModal').addEventListener('click',()=>NT.$('#foodModal').classList.add('hidden'));
+  // Backdrop click to close
+  NT.$('#foodModal .modal-backdrop')?.addEventListener('click',()=>NT.$('#foodModal').classList.add('hidden'));
   
   // Food search in modal
+  let modalUsdaTimeout;
   NT.$('#foodSearchInput').addEventListener('input',()=>{
+    clearTimeout(modalUsdaTimeout);
     const v=NT.$('#foodSearchInput').value.trim().toLowerCase();
     if(v.length<2){NT.$('#foodSearchResults').innerHTML='';return}
     const m=FOOD_DB.filter(f=>f.name.toLowerCase().includes(v)).slice(0,10);
-    NT.$('#foodSearchResults').innerHTML=m.map(f=>`<div class="search-item" data-id="${f.id}"><div class="search-item-name">${esc(f.name)}</div><div class="search-item-cal">${Math.round(f.cal*f.servings[0].g/100)} kcal / ${f.servings[0].name}</div></div>`).join('');
+    if(m.length){
+      NT.$('#foodSearchResults').innerHTML=m.map(f=>`<div class="search-item" data-id="${f.id}"><div class="search-item-name">${esc(f.name)}</div><div class="search-item-cal">${Math.round(f.cal*f.servings[0].g/100)} kcal / ${f.servings[0].name}</div></div>`).join('');
+    }else{
+      NT.$('#foodSearchResults').innerHTML=`<div class="search-no-results" style="padding:12px;color:var(--text2);font-size:.8rem;text-align:center">Searching USDA for "${esc(v)}"...</div>`;
+      if(v.length>=3){
+        modalUsdaTimeout=setTimeout(async()=>{
+          const usdaResults=await searchUSDA(v);
+          if(usdaResults.length){
+            usdaResults.forEach(f=>{if(!FOOD_DB.find(x=>x.id===f.id))FOOD_DB.push(f)});
+            NT.$('#foodSearchResults').innerHTML=usdaResults.map(f=>`<div class="search-item" data-id="${f.id}"><div class="search-item-name">🌐 ${esc(f.name)}</div><div class="search-item-cal">${Math.round(f.cal*f.servings[0].g/100)} kcal / ${f.servings[0].name}</div></div>`).join('');
+          }else{
+            NT.$('#foodSearchResults').innerHTML=`<div class="search-no-results" style="padding:12px;color:var(--text2);font-size:.8rem;text-align:center">No results for "${esc(v)}"<br><small style="color:var(--accent)">Try AI Coach tab</small></div>`;
+          }
+          // Re-bind click handlers
+          NT.$('#foodSearchResults').querySelectorAll('.search-item').forEach(el=>{
+            el.addEventListener('click',()=>{selectedFood=findFood(el.dataset.id);if(!selectedFood)return;NT.$('#foodDetailSection').classList.remove('hidden');NT.$('#selectedFoodName').textContent=selectedFood.name;NT.$('#servingQty').value=1;NT.$('#servingUnit').innerHTML=selectedFood.servings.map((s,i)=>`<option value="${i}">${s.name} (${s.g}g)</option>`).join('');updPreview();NT.$('#foodSearchResults').innerHTML='';NT.$('#foodSearchInput').value=''});
+          });
+        },400);
+      }
+    }
     NT.$('#foodSearchResults').querySelectorAll('.search-item').forEach(el=>{
       el.addEventListener('click',()=>{selectedFood=findFood(el.dataset.id);if(!selectedFood)return;NT.$('#foodDetailSection').classList.remove('hidden');NT.$('#selectedFoodName').textContent=selectedFood.name;NT.$('#servingQty').value=1;NT.$('#servingUnit').innerHTML=selectedFood.servings.map((s,i)=>`<option value="${i}">${s.name} (${s.g}g)</option>`).join('');updPreview();NT.$('#foodSearchResults').innerHTML='';NT.$('#foodSearchInput').value=''});
     });
@@ -177,6 +238,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Exercise
   NT.$('#addExerciseBtn').addEventListener('click',()=>NT.$('#exerciseModal').classList.remove('hidden'));
   NT.$('#closeExerciseModal').addEventListener('click',()=>NT.$('#exerciseModal').classList.add('hidden'));
+  NT.$('#exerciseModal .modal-backdrop')?.addEventListener('click',()=>NT.$('#exerciseModal').classList.add('hidden'));
   NT.$('#addExerciseSubmit').addEventListener('click',()=>{
     const d=NT.state.currentDate;if(!NT.state.exercises[d])NT.state.exercises[d]=[];
     NT.state.exercises[d].push({name:NT.$('#exerciseName').value||'Exercise',duration:parseInt(NT.$('#exerciseDuration').value)||30,cal:parseInt(NT.$('#exerciseCalories').value)||200});
@@ -738,17 +800,22 @@ FOR TEXT:
 2. Think about what goes INTO the dish — main ingredient + oil/ghee + spices + sides.
 3. South Asian home-cooked dishes typically use 1-2 tbsp oil/ghee per serving (120-250 extra cal). Account for this.
 
-ACCURACY RULES:
-- cal = total calories for the ENTIRE stated portion, NOT per 100g.
+ACCURACY — INGREDIENT DECOMPOSITION METHOD:
+NEVER estimate a whole dish. ALWAYS decompose into ingredients:
+
+1. IDENTIFY each ingredient and its weight (e.g. "dal" → lentils 150g + oil 1 tbsp + onion/tomato 50g)
+2. CALCULATE macros per ingredient using these anchors:
+   Proteins: Chicken (cooked) 31gP/0gC/3.6gF per 100g. Beef (cooked) 26gP/0gC/11gF per 100g. Egg: 6.5gP/0.5gC/5gF. Lentils (cooked): 9gP/20gC/0.4gF per 100g.
+   Carbs: Rice (cooked): 2.7gP/28gC/0.3gF per 100g. Roti (40g): 3.5gP/20gC/3gF. Naan (90g): 8gP/45gC/5gF.
+   Fats: Oil/Ghee: 0gP/0gC/14gF per tbsp. Butter: 0gP/0gC/11gF per tbsp.
+   Dairy: Yogurt: 3.5gP/4.7gC/3.3gF per 100g. Milk: 3.2gP/4.8gC/3.3gF per 100ml.
+3. ADD COOKING FAT — desi dishes ALWAYS have oil/ghee:
+   Light (dal, sabzi): +1 tbsp (14gF). Medium (karahi, keema): +2 tbsp (28gF). Heavy (nihari, halwa): +3 tbsp (42gF).
+   ONLY skip if food is explicitly "plain", "boiled", "steamed", or "grilled".
+4. SCALE TO PORTION: Reference values are per 100g. Multiply ALL values (P, C, F) by (portion_g / 100). NEVER use per-100g macros with a different portion's calories.
+5. SUM all scaled ingredient macros → these are final P, C, F values.
+6. DERIVE calories: cal = (P*4) + (C*4) + (F*9). Verify PER ITEM and TOTAL. If any item's macros don't match its calories, fix the scaling.
 - servingText MUST include grams, e.g. "2 chapatis (80g)" or "1 cup rice (200g)".
-- Break down mixed meals into components (e.g. biryani plate → rice portion + meat portion + raita).
-- NEVER guess randomly. Reason from USDA/IFCT data:
-  * Cooked chicken: 165 cal/100g. Raw chicken: 120 cal/100g.
-  * Cooked rice: 130 cal/100g. Chapati (40g): 120 cal. Naan (90g): 260 cal.
-  * Oil/Ghee: 120 cal per tbsp. Butter: 100 cal per tbsp.
-  * Egg: 75 cal. Whole milk: 62 cal/100ml.
-  * Dal/lentils (cooked): 115 cal/100g.
-- For unknown/complex foods, estimate by reasoning about ingredients and cooking method.
 - When a specific brand or weight is mentioned (e.g. "Dawn bread 25g"), use THAT exact weight.`;
   const userMsg=isImage?'Analyze this food image. If there is a nutrition label visible, READ it and use those exact values. Otherwise identify all food items and estimate portions accurately. Return nutrition JSON:':`Analyze and return JSON: "${input}"`;
   const imgData=isImage?input:null;

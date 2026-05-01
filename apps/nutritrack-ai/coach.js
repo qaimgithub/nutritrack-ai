@@ -382,17 +382,34 @@ Use the exact exercise name from the templates above.`;
   function autoMeal(){const h=new Date().getHours();if(h<11)return'breakfast';if(h<15)return'lunch';if(h<20)return'dinner';return'snacks'}
   function detectMeal(text){
     const t=text.toLowerCase();
-    if(/\b(breakfast|morning meal|nashta)\b/.test(t))return'breakfast';
+    if(/\b(breakfast|morning meal|nashta|subah)\b/.test(t))return'breakfast';
     if(/\b(lunch|afternoon meal|dopahar)\b/.test(t))return'lunch';
-    if(/\b(dinner|evening meal|raat)\b/.test(t))return'dinner';
+    if(/\b(dinner|evening meal|raat|shaam)\b/.test(t))return'dinner';
     if(/\b(snack|snacks)\b/.test(t))return'snacks';
+    // If re-logging/correcting, check recent chat history for the last meal keyword
+    const chat=NT.state.coachChats.find(c=>c.id===NT.state.activeChatId);
+    if(chat && /\b(relog|re-log|correct|fix|update|again|with fiber|with sugar|same meal)\b/i.test(t)){
+      const recentMsgs=chat.messages.slice(-10);
+      for(let i=recentMsgs.length-1;i>=0;i--){
+        const mt=recentMsgs[i].text.toLowerCase();
+        if(/\b(breakfast|nashta)\b/.test(mt))return'breakfast';
+        if(/\b(lunch|dopahar)\b/.test(mt))return'lunch';
+        if(/\b(dinner|raat|shaam)\b/.test(mt))return'dinner';
+        if(/\b(snack)\b/.test(mt))return'snacks';
+        // Also check if the AI confirmed logging to a specific meal
+        if(/logged to breakfast/i.test(mt))return'breakfast';
+        if(/logged to lunch/i.test(mt))return'lunch';
+        if(/logged to dinner/i.test(mt))return'dinner';
+        if(/logged to snack/i.test(mt))return'snacks';
+      }
+    }
     return autoMeal();
   }
 
   // ═══ WORKOUT DETECTION ═══
   function isWorkoutLog(text){
     const t=text.toLowerCase();
-    return /\b(i did|i trained|i worked out|did my|just finished|completed|done with|workout done|push day|pull day|leg day|legs day|did push|did pull|did legs|did cardio|treadmill|walked|ran|jogging)\b/.test(t);
+    return /\b(i did|i trained|i worked out|did my|just finished|completed|done with|workout done|push day|pull day|leg day|legs day|did push|did pull|did legs|did cardio|treadmill|walked|ran|jogging|log.{0,10}push|log.{0,10}pull|log.{0,10}legs|log.{0,10}cardio|log.{0,10}workout|push.{0,15}(yesterday|kal|log)|pull.{0,15}(yesterday|kal|log)|legs.{0,15}(yesterday|kal|log)|did.{0,5}gym|gym.{0,10}(kia|kiya|done|log))\b/.test(t);
   }
   function detectWorkoutType(text){
     const t=text.toLowerCase();
@@ -439,11 +456,85 @@ Use the exact exercise name from the templates above.`;
     if(!hasAiKey()){addMsg("Please set your Groq or Gemini API key in the More tab.",'ai');return}
     showTyping();
 
-    const log=dayLog(NT.state.currentDate);
+    // ═══ DATE DETECTION — support back-date logging ═══
+    let targetDate=NT.state.currentDate;
+    const datePatterns=[
+      // "30 apr", "30 april", "april 30", "apr 30"
+      /(\d{1,2})\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*/i,
+      /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s*(\d{1,2})/i,
+      // "yesterday", "kal", "parso"
+      /\b(yesterday|kal)\b/i,
+      /\b(day before yesterday|parso|parson)\b/i,
+      // "2026-04-30" or "30/04" or "30-04"
+      /(\d{4})-(\d{2})-(\d{2})/,
+      /(\d{1,2})[\/\-](\d{1,2})/
+    ];
+    const monthMap={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+    const lowerText=text.toLowerCase();
+    // Check relative dates first
+    if(/\b(yesterday|kal|pichle|guzishta)\b/i.test(lowerText)){
+      targetDate=shiftDate(todayStr(),-1);
+    }else if(/\b(day before yesterday|parso|parson)\b/i.test(lowerText)){
+      targetDate=shiftDate(todayStr(),-2);
+    }else if(/\b(tomorrow)\b/i.test(lowerText)){
+      targetDate=shiftDate(todayStr(),1);
+    }else{
+      // Try "30 apr", "30 april", "30th april", "april 30"
+      const monthNames='jan|feb|mar|apr|april|may|jun|june|jul|july|aug|sep|sept|oct|nov|dec';
+      let dm=lowerText.match(new RegExp('(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s+)?(' + monthNames + ')\\w*','i'));
+      if(!dm) dm=lowerText.match(new RegExp('(' + monthNames + ')\\w*\\s*(\\d{1,2})','i'));
+      if(dm){
+        // Figure out which group is the day and which is the month
+        const g1=dm[1], g2=dm[2];
+        let day, monStr;
+        if(/^\d+$/.test(g1)){
+          day=parseInt(g1);
+          monStr=g2.slice(0,3).toLowerCase();
+        }else{
+          monStr=g1.slice(0,3).toLowerCase();
+          day=parseInt(g2);
+        }
+        const mon=monthMap[monStr];
+        if(mon!==undefined && day>=1 && day<=31){
+          const yr=new Date().getFullYear();
+          const d=new Date(yr,mon,day);
+          targetDate=d.toISOString().slice(0,10);
+        }
+      }
+    }
+    console.log('[NutriTrack] Date detection → targetDate:', targetDate, '| from text:', lowerText.slice(0,60));
+    if(targetDate!==todayStr()) toast(`📅 Logging to: ${targetDate}`,'info');
+
+    const log=dayLog(targetDate);
     let t={cal:0,protein:0,carbs:0,fat:0};
     ['breakfast','lunch','dinner','snacks'].forEach(m=>(log[m]||[]).forEach(i=>{t.cal+=i.cal;t.protein+=i.protein;t.carbs+=i.carbs;t.fat+=i.fat}));
 
-    const dailyCtx=`Today (${NT.state.currentDate}): Goals: ${NT.state.goals.cal}cal/${NT.state.goals.protein}gP/${NT.state.goals.carbs}gC/${NT.state.goals.fat}gF. Eaten: ${Math.round(t.cal)}cal/${Math.round(t.protein)}gP/${Math.round(t.carbs)}gC/${Math.round(t.fat)}gF. Water: ${log.water||0}/${NT.state.goals.water}.`;
+    // Build detailed per-meal breakdown so AI knows exactly what's logged
+    const mealDetail=['breakfast','lunch','dinner','snacks'].map(m=>{
+      const items=log[m]||[];
+      if(items.length===0) return `  ${m}: (empty — nothing logged)`;
+      const list=items.map(i=>`${i.name} ${Math.round(i.cal)}cal`).join(', ');
+      return `  ${m}: ${list}`;
+    }).join('\n');
+
+    const dateLabel=targetDate===todayStr()?'Today':targetDate===shiftDate(todayStr(),-1)?'Yesterday':targetDate===shiftDate(todayStr(),1)?'Tomorrow':targetDate;
+    const dailyCtx=`DIARY STATE for ${dateLabel} (${targetDate}):\nGoals: ${NT.state.goals.cal}cal/${NT.state.goals.protein}gP/${NT.state.goals.carbs}gC/${NT.state.goals.fat}gF.\nTotal eaten: ${Math.round(t.cal)}cal/${Math.round(t.protein)}gP/${Math.round(t.carbs)}gC/${Math.round(t.fat)}gF. Water: ${log.water||0}/${NT.state.goals.water}.\nMeal slots:\n${mealDetail}\nNOTE: When logging food, save to date ${targetDate}. If user mentions a different date, use that date.`;
+
+    // Build 3-day diary history for trend awareness
+    let diaryHistory='';
+    for(let i=1;i<=3;i++){
+      const pastDate=shiftDate(todayStr(),-i);
+      if(pastDate===targetDate) continue; // skip if already shown above
+      const pLog=NT.state.logs[pastDate];
+      if(!pLog) continue;
+      let pt={cal:0,protein:0,carbs:0,fat:0};
+      ['breakfast','lunch','dinner','snacks'].forEach(m=>(pLog[m]||[]).forEach(item=>{pt.cal+=item.cal;pt.protein+=item.protein;pt.carbs+=item.carbs;pt.fat+=item.fat}));
+      if(pt.cal>0){
+        const pLabel=i===1?'Yesterday':i===2?'2 days ago':'3 days ago';
+        diaryHistory+=`${pLabel} (${pastDate}): ${Math.round(pt.cal)}cal, ${Math.round(pt.protein)}gP, ${Math.round(pt.carbs)}gC, ${Math.round(pt.fat)}gF. Water: ${pLog.water||0}.\n`;
+      }
+    }
+    if(diaryHistory) diaryHistory='\nRECENT DIARY HISTORY:\n'+diaryHistory;
     const bodyCtx=buildBodyContext();
     const pastCtx=buildPastConversationContext();
     const workoutCtx=buildWorkoutContext();
@@ -485,12 +576,16 @@ STEP 2 — CALCULATE:
   * Egg: 75 cal. Dal (cooked): 115 cal/100g. Oil/Ghee: ~120 cal/tbsp.
   * Milk (whole): 62 cal/100ml. Dahi/Yogurt: 60 cal/100g.
 - Calories = total for the ENTIRE stated portion, NEVER per 100g.
+- MANDATORY 4-9-4 SELF-CHECK: cal MUST equal (protein*4)+(carbs*4)+(fat*9) within 5%. If not, fix the numbers before responding. The macros DEFINE the calories.
+- COOKING FAT: "dal"/"curry"/"sabzi" = cooked with oil/ghee tadka, add 5-10g fat. Only 0-1g fat if explicitly "boiled"/"steamed"/"plain".
 - After your breakdown, a confirmation button will appear. Do NOT say "logged" or "saved" — say something like "Here's the breakdown — confirm to log it to your diary."
 
 CRITICAL — YOU MUST DO THIS OR THE APP BREAKS:
 After your response, on the VERY LAST LINE, you MUST add this hidden HTML comment with the food data as JSON:
 <!--FOOD_JSON:[{"name":"Seeded Bread","cal":110,"protein":4.6,"carbs":11.5,"fat":5.1,"fiber":1,"sugar":0.5,"servingText":"1 slice (30g)"}]-->
-The JSON array MUST contain one object per food item. Numbers MUST match your table. Each item MUST include "servingText" with grams in parentheses like "(126g)". DO NOT forget this line. Without it, NOTHING gets saved.
+The JSON array MUST contain one object per food item. Numbers MUST match your table. Each item MUST include ALL of these fields:
+"name", "cal", "protein", "carbs", "fat", "fiber" (default 0 if unknown), "sugar" (default 0 if unknown), "servingText" (with grams like "(126g)").
+NEVER skip fiber or sugar — use 0 if you don't know. Without this line, NOTHING gets saved.
 
 WATER LOGGING:
 If the user mentions drinking water (e.g. "a glass of water", "log water", "drank water"), ALSO add this on a separate line:
@@ -521,9 +616,9 @@ The number is how many glasses. This is IN ADDITION to the FOOD_JSON line if the
           const food=FOOD_DB.find(f=>f.id===id);
           if(!food)continue;
           const servingInfo=food.servings.filter(s=>s.name!=='g').map(s=>`1 ${s.name} (${s.g}g) = ${Math.round(food.cal*s.g/100)} cal`).join(', ');
-          hints.push(`• ${food.name}: ${food.cal} cal/100g. ${servingInfo}`);
+          hints.push(`• ${food.name}: per 100g → ${food.cal}cal, ${food.protein}gP, ${food.carbs}gC, ${food.fat}gF. Servings: ${servingInfo}`);
         }
-        dbHints=`\nVERIFIED REFERENCE VALUES (from our database — use these EXACT numbers, do NOT override):\n${hints.join('\n')}\n`;
+        dbHints=`\nVERIFIED REFERENCE VALUES (for SIMPLE/SINGLE ingredients only — use these exact per-100g macros):\n${hints.join('\n')}\nUSAGE RULES:\n- Use these DB values for SIMPLE items (roti, egg, rice, naan, raita, etc.) — just scale to portion.\n- For COMPLEX/COOKED dishes (fried rice, biryani, karahi, etc.), IGNORE the DB entry and DECOMPOSE into ingredients instead.\n- After computing all macros, do a FINAL CHECK: add up P, C, F from all items. Then verify total_cal = (total_P*4)+(total_C*4)+(total_F*9). If it doesn't match, you made an error — go back and fix.\n`;
       }
     }
 
@@ -531,7 +626,7 @@ The number is how many glasses. This is IN ADDITION to the FOOD_JSON line if the
 
 USER CONTEXT:
 ${bodyCtx}
-${dailyCtx}
+${dailyCtx}${diaryHistory}
 ${workoutCtx}
 ${pastCtx}
 ${dbHints}
@@ -544,6 +639,56 @@ HOW TO RESPOND:
 - Use bullet points for lists, not tables.
 - ONLY use a table when the user is logging specific food they ate (see below). For general advice, questions, meal ideas, or discussion — just talk normally. Do NOT use tables for advice or suggestions.
 - Use markdown formatting: **bold**, *italic*, bullet points.
+
+NUTRITION ACCURACY — HOW TO THINK ABOUT FOOD (apply to ALL food discussions):
+NEVER estimate a dish as a whole. ALWAYS decompose into ingredients first. Follow this exact process:
+
+STEP 1 — DECOMPOSE INTO INGREDIENTS:
+Break any dish into its raw components. Example for "chicken karahi":
+  → Chicken pieces: ~200g cooked chicken
+  → Cooking oil/ghee: ~2 tbsp (28g)
+  → Tomatoes, onions, spices: ~100g
+  → Gravy base: flour/yogurt if applicable
+
+STEP 2 — CALCULATE MACROS PER INGREDIENT (use these anchors):
+  Proteins: Chicken (cooked) 31gP/0gC/3.6gF per 100g. Beef (cooked) 26gP/0gC/11gF per 100g. Egg: 6.5gP/0.5gC/5gF per egg. Lentils (cooked): 9gP/20gC/0.4gF per 100g. Chickpeas (cooked): 9gP/27gC/2.6gF per 100g.
+  Carbs: Cooked rice: 2.7gP/28gC/0.3gF per 100g. Roti (40g): 3.5gP/20gC/3gF. Naan (90g): 8gP/45gC/5gF. Puri (40g, fried): 2.5gP/17gC/8gF.
+  Fats: Oil/Ghee: 0gP/0gC/14gF per tbsp (120cal). Butter: 0gP/0gC/11gF per tbsp (100cal).
+  Dairy: Yogurt/Dahi: 3.5gP/4.7gC/3.3gF per 100g. Milk (whole): 3.2gP/4.8gC/3.3gF per 100ml.
+  Vegetables: Tomato/onion gravy base adds ~5-10gC per serving, negligible P/F.
+
+STEP 3 — ALWAYS ADD COOKING FAT:
+  Desi home cooking ALWAYS uses oil/ghee. Never skip this:
+  → Light dishes (dal, sabzi): 1 tbsp oil = 14gF / 120cal
+  → Medium (karahi, keema): 2 tbsp = 28gF / 240cal
+  → Heavy (nihari, halwa, deep-fried): 3+ tbsp = 42gF+ / 360cal+
+  → Deep fried (puri, samosa, pakora): item absorbs oil, already in per-piece values
+  → ONLY skip cooking fat if user says "plain", "boiled", "steamed", or "grilled"
+
+STEP 4 — SCALE TO ACTUAL PORTION:
+  Reference values are per 100g. If the portion is different, multiply ALL values by (portion_g / 100).
+  Example: Paratha is 7gP/45gC/13gF per 100g. For 80g: P=5.6g, C=36g, F=10.4g. NEVER use per-100g macros with scaled calories — that makes the math wrong.
+
+STEP 5 — SUM ALL SCALED INGREDIENT MACROS:
+  Add up P, C, F from all ingredients. These are your final macros.
+
+STEP 6 — DERIVE CALORIES USING 4-9-4:
+  cal = (total_P × 4) + (total_C × 4) + (total_F × 9)
+  NEVER state calories independently. The macros DEFINE the calories. Period.
+  Do this check PER ITEM and for the TOTAL. If any item's macros don't produce its stated calories, you made a scaling error — go back and fix it.
+
+IMPORTANT MINDSET:
+- Think like a chef, not a calorie counter. What GOES INTO the pot?
+- A "bowl of nihari" is NOT one thing — it's beef shank + bone marrow + ghee + flour + spices. Decompose it.
+- When in doubt, overestimate fat rather than underestimate. Desi cooking is generous with oil.
+- ALWAYS scale macros AND calories together. Never mix per-100g macros with portion-scaled calories.
+- Oil math: 1 tbsp = 14g fat = 126 cal. 2 tbsp = 28g fat = 252 cal. NOT 240.
+
+MANDATORY FINAL VERIFICATION (do this BEFORE writing your response):
+1. Add up P from all items. Add up C from all items. Add up F from all items.
+2. Verify: stated_total_P = sum of individual P values. Same for C and F.
+3. Verify: total_cal = (total_P × 4) + (total_C × 4) + (total_F × 9).
+4. If ANY check fails, FIX the numbers. Do NOT output incorrect totals.
 ${foodRule}
 ${workoutDetected?buildWorkoutRule(detectedWorkoutType):''}
 
@@ -609,7 +754,7 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
         try{workoutData=JSON.parse(wm[1])}catch(e){console.warn('Workout JSON parse fail:',e)}
         reply=reply.replace(/<!--\s*WORKOUT_JSON\s*:[\s\S]*?-->/,'').trim();
         if(workoutData){
-          const log=dayLog(NT.state.currentDate);
+          const log=dayLog(targetDate);
           log.workout=workoutData;
           saveAll();
           if(window.renderWorkout)window.renderWorkout();
@@ -658,17 +803,23 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
         }catch(e){console.warn('Fallback extraction error:',e)}
       }
 
-      // ═══ CONFIRM BEFORE LOGGING — show card with Log/Skip buttons ═══
+      // ═══ CONFIRM BEFORE LOGGING — show card with meal picker + date ═══
       if(foodItems&&foodItems.length>0){
-        const meal=userMeal;
+        const defaultMeal=userMeal;
         const totalCal=foodItems.reduce((s,i)=>s+(i.cal||0),0);
 
         const card=document.createElement('div');card.className='chat-msg ai';
         card.innerHTML=`<div style="border:1px solid rgba(var(--accent-rgb),.3);border-radius:12px;padding:12px;margin-top:4px;background:rgba(var(--accent-rgb),.04)">
-          <div style="font-weight:600;margin-bottom:8px;color:var(--accent);display:flex;align-items:center;gap:6px">
-            <span style="font-size:1.1rem">📋</span> Ready to log to ${meal.charAt(0).toUpperCase()+meal.slice(1)}
-          </div>
           <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${foodItems.map(i=>`${i.name}: <strong style="color:var(--text)">${Math.round(i.cal)}</strong> cal`).join('<br>')}<br><strong style="color:var(--accent)">Total: ${Math.round(totalCal)} cal</strong></div>
+          <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+            <select class="meal-select" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.78rem;font-family:var(--font);flex:1;min-width:100px">
+              <option value="breakfast"${defaultMeal==='breakfast'?' selected':''}>🌅 Breakfast</option>
+              <option value="lunch"${defaultMeal==='lunch'?' selected':''}>☀️ Lunch</option>
+              <option value="dinner"${defaultMeal==='dinner'?' selected':''}>🌙 Dinner</option>
+              <option value="snacks"${defaultMeal==='snacks'?' selected':''}>🍿 Snacks</option>
+            </select>
+            <input type="date" class="date-select" value="${targetDate}" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.75rem;font-family:var(--font);flex:1;min-width:120px" />
+          </div>
           <div style="display:flex;gap:8px">
             <button class="confirm-log" style="flex:1;padding:8px 14px;border:0;border-radius:8px;background:var(--accent);color:#000;cursor:pointer;font-size:.78rem;font-weight:600;font-family:var(--font)">✅ Log this</button>
             <button class="skip-log" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text2);cursor:pointer;font-size:.78rem;font-family:var(--font)">✗ Skip</button>
@@ -676,33 +827,36 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
         </div>`;
         chatMsgs.appendChild(card);chatMsgs.scrollTop=chatMsgs.scrollHeight;
 
-        // Log handler — only saves when user clicks
+        // Log handler — reads meal & date from the card's controls
         card.querySelector('.confirm-log')?.addEventListener('click',()=>{
-          const dl=dayLog(NT.state.currentDate);
-          dl[meal]=dl[meal].filter(item=>item.foodId!=='ai_coach');
+          const selectedMeal=card.querySelector('.meal-select').value;
+          const selectedDate=card.querySelector('.date-select').value;
+          const dl=dayLog(selectedDate);
           foodItems.forEach(i=>{
             let g=100;
             const gm=(i.servingText||'').match(/(\d+\.?\d*)\s*g/i);
             if(gm)g=parseFloat(gm[1]);
-            dl[meal].push({
+            dl[selectedMeal].push({
               name:i.name,cal:i.cal||0,protein:i.protein||0,carbs:i.carbs||0,
               fat:i.fat||0,fiber:i.fiber||0,sugar:i.sugar||0,
               servingText:i.servingText||'1 serving',foodId:'ai_coach',grams:g
             });
           });
           saveAll();updateDiary();
+          const mealLabel=selectedMeal.charAt(0).toUpperCase()+selectedMeal.slice(1);
+          const dateShow=selectedDate===todayStr()?'':` (${selectedDate})`;
           card.innerHTML=`<div style="border:1px solid rgba(48,209,88,.3);border-radius:12px;padding:10px;background:rgba(48,209,88,.06)">
-            <span style="color:#30D158;font-weight:600">✅ Logged to ${meal.charAt(0).toUpperCase()+meal.slice(1)}</span>
+            <span style="color:#30D158;font-weight:600">✅ Logged to ${mealLabel}${dateShow}</span>
             <span style="font-size:.72rem;color:var(--text2);margin-left:8px">${Math.round(totalCal)} cal</span>
             <button class="undo-log" style="float:right;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text2);cursor:pointer;font-size:.7rem;font-family:var(--font)">↩ Undo</button>
           </div>`;
-          toast(`${foodItems.length} item${foodItems.length>1?'s':''} logged to ${meal} (${Math.round(totalCal)} cal)`,'success');
+          toast(`${foodItems.length} item${foodItems.length>1?'s':''} logged to ${mealLabel}${dateShow} (${Math.round(totalCal)} cal)`,'success');
           // Undo handler
           card.querySelector('.undo-log')?.addEventListener('click',()=>{
-            const dl2=dayLog(NT.state.currentDate);
-            dl2[meal].splice(-foodItems.length,foodItems.length);
+            const dl2=dayLog(selectedDate);
+            dl2[selectedMeal].splice(-foodItems.length,foodItems.length);
             saveAll();updateDiary();
-            card.innerHTML=`<div style="color:var(--text2);padding:8px">↩ Removed from ${meal}</div>`;
+            card.innerHTML=`<div style="color:var(--text2);padding:8px">↩ Removed from ${mealLabel}</div>`;
             toast('Food entry undone','info');
           });
         });
@@ -715,7 +869,7 @@ ${foodDetected?'\nREMINDER: You MUST end your response with the <!--FOOD_JSON:[.
 
       // ═══ AUTO-LOG WATER ═══
       if(waterGlasses>0){
-        const dl=dayLog(NT.state.currentDate);
+        const dl=dayLog(targetDate);
         dl.water=(dl.water||0)+waterGlasses;
         saveAll();updateDiary();
         toast(`💧 ${waterGlasses} glass${waterGlasses>1?'es':''} of water logged (${dl.water} total)`,'success');

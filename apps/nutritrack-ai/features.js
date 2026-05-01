@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 
   NT.$('#exportData').addEventListener('click',()=>{
-    const data=JSON.stringify({goals:NT.state.goals,logs:NT.state.logs,weights:NT.state.weights,exercises:NT.state.exercises,profile:NT.state.profile||{},bodyLogs:NT.state.bodyLogs||[],bodyGoals:NT.state.bodyGoals||{},workoutTemplates:NT.state.workoutTemplates||{},coachChats:NT.state.coachChats||[],training:NT.state.training||{}},null,2);
+    const data=JSON.stringify({goals:NT.state.goals,logs:NT.state.logs,weights:NT.state.weights,exercises:NT.state.exercises,profile:NT.state.profile||{},bodyLogs:NT.state.bodyLogs||[],bodyGoals:NT.state.bodyGoals||{},workoutTemplates:NT.state.workoutTemplates||{},coachChats:NT.state.coachChats||[],training:NT.state.training||{},geminiKey:NT.state.geminiKey||'',groqKey:NT.state.groqKey||''},null,2);
     const blob=new Blob([data],{type:'application/json'});const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=`nutritrack_${todayStr()}.json`;a.click();URL.revokeObjectURL(url);
     toast('Data exported','success');
@@ -492,7 +492,9 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(d.workoutTemplates)NT.state.workoutTemplates=d.workoutTemplates;
         if(d.coachChats)NT.state.coachChats=d.coachChats;
         if(d.training)NT.state.training=d.training;
-        saveAll();updateDiary();loadSettings();toast('Data imported','success');
+        if(d.geminiKey){NT.state.geminiKey=d.geminiKey;NT.$('#geminiKey').value=d.geminiKey}
+        if(d.groqKey){NT.state.groqKey=d.groqKey;const el=NT.$('#groqKey');if(el)el.value=d.groqKey}
+        saveAll();updateDiary();loadSettings();toast('Data imported (including API keys)','success');
       }catch{toast('Invalid file','error')}
     };r.readAsText(f);NT.$('#importDataInput').value='';
   });
